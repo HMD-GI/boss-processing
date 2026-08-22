@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment & Secrets
+.env
+*.log
+
+# Project data
+data/job_results/
+data/*.sqlite3
+data/*.db
+
+# Frontend build artifacts
+frontend/dist/
+frontend/node_modules/
+
+# Test / Cache
+.pytest_cache/
+htmlcov/
+.coverage
