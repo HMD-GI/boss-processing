@@ -10,6 +10,7 @@
       <div class="rs-contact">
         <span v-if="data.personal.phone">{{ data.personal.phone }}</span>
         <span v-if="data.personal.email">| {{ data.personal.email }}</span>
+        <span v-if="data.personal.wechat">| {{ data.personal.wechat }}</span>
         <span v-if="data.personal.github">| {{ data.personal.github }}</span>
         <span v-if="data.personal.blog">| {{ data.personal.blog }}</span>
       </div>
@@ -29,7 +30,7 @@
           <span class="rs-item-title">{{ edu.school }}</span>
           <span class="rs-item-date">{{ edu.startDate }} - {{ edu.endDate }}</span>
         </div>
-        <p class="rs-item-sub">{{ edu.major }} · {{ edu.degree }} <template v-if="edu.gpa">| GPA: {{ edu.gpa }}</template></p>
+        <p class="rs-item-sub">{{ edu.major }} · {{ edu.degree }} <template v-if="edu.gpa">| GPA: {{ edu.gpa }}</template><template v-if="edu.rank">| 排名: {{ edu.rank }}</template></p>
         <p v-if="edu.courses" class="rs-text-sm">主修课程：{{ edu.courses }}</p>
       </div>
     </section>
@@ -91,6 +92,7 @@
 defineProps({
   data: { type: Object, required: true },
   color: { type: String, default: '#4361ee' },
+  editMode: { type: Boolean, default: false },
 })
 </script>
 

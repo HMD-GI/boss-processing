@@ -9,6 +9,7 @@
       <div class="tw-contact-block">
         <div v-if="data.personal.phone" class="tw-c-item">{{ data.personal.phone }}</div>
         <div v-if="data.personal.email" class="tw-c-item">{{ data.personal.email }}</div>
+        <div v-if="data.personal.wechat" class="tw-c-item">微信: {{ data.personal.wechat }}</div>
         <div v-if="data.personal.github" class="tw-c-item">{{ data.personal.github }}</div>
         <div v-if="data.personal.blog" class="tw-c-item">{{ data.personal.blog }}</div>
       </div>
@@ -22,14 +23,14 @@
       </div>
       <!-- 右栏 -->
       <div class="tw-right">
-        <section v-if="data.education.length" class="tw-sec"><h2 class="tw-sec-title" :style="{ borderColor: color }">教育经历</h2><div v-for="e in data.education" :key="e.id" class="tw-entry"><div class="tw-row"><b>{{ e.school }}</b><span class="tw-date">{{ e.startDate }}—{{ e.endDate }}</span></div><p class="tw-sub">{{ e.major }} · {{ e.degree }}</p></div></section>
+        <section v-if="data.education.length" class="tw-sec"><h2 class="tw-sec-title" :style="{ borderColor: color }">教育经历</h2><div v-for="e in data.education" :key="e.id" class="tw-entry"><div class="tw-row"><b>{{ e.school }}</b><span class="tw-date">{{ e.startDate }}—{{ e.endDate }}</span></div><p class="tw-sub">{{ e.major }} · {{ e.degree }}<span v-if="e.gpa"> · GPA: {{ e.gpa }}</span><span v-if="e.rank"> · 排名: {{ e.rank }}</span></p><p v-if="e.courses" class="tw-text-sm">主修课程：{{ e.courses }}</p></div></section>
         <section v-if="data.workExperience.length" class="tw-sec"><h2 class="tw-sec-title" :style="{ borderColor: color }">工作经历</h2><div v-for="w in data.workExperience" :key="w.id" class="tw-entry"><div class="tw-row"><b>{{ w.company }}</b><span class="tw-date">{{ w.startDate }}—{{ w.endDate }}</span></div><p class="tw-sub">{{ w.position }}</p><ul class="tw-list"><li v-for="(d,i) in w.description" :key="i">{{ d }}</li></ul></div></section>
         <section v-if="data.projects.length" class="tw-sec"><h2 class="tw-sec-title" :style="{ borderColor: color }">项目经历</h2><div v-for="p in data.projects" :key="p.id" class="tw-entry"><div class="tw-row"><b>{{ p.name }}</b><span class="tw-role" :style="{color}">{{ p.role }}</span></div><p v-if="p.techStack" class="tw-sub">{{ p.techStack }}</p><p v-if="p.description" class="tw-text-sm">{{ p.description }}</p></div></section>
       </div>
     </div>
   </div>
 </template>
-<script setup>defineProps({ data: { type: Object, required: true }, color: { type: String, default: '#609ef3' } })</script>
+<script setup>defineProps({ data: { type: Object, required: true }, color: { type: String, default: '#609ef3' }, editMode: { type: Boolean, default: false } })</script>
 <style scoped>
 .resume-two-col-tpl{font-family:'PingFang SC','Microsoft YaHei',sans-serif;font-size:14px;color:#333;line-height:1.6;background:#fff;width:794px;min-height:1123px}
 .tw-header{display:flex;align-items:center;gap:20px;padding:28px 40px;border-bottom:3px solid var(--theme)}

@@ -35,6 +35,9 @@ class CrawlService:
         self.connector: Optional[CDPConnector] = None
         self.writer = DataWriter()
         self.log_callback = None  # 日志回调函数: (message, level) -> None
+        self.auth_required_callback = None  # 登录要求回调: (reason, code) -> bool
+        # 返回 True 表示用户已完成登录，可重试；False 表示放弃
+        self._login_cancelled = False  # 标记用户是否取消了登录
 
     def _log(self, message: str, level: str = "info"):
         """输出日志到控制台和回调函数。"""
@@ -227,6 +230,7 @@ class CrawlService:
         output_format: str = "json",
         db_session=None,
         skip_env_check: bool = False,
+        keep_chrome_alive: bool = False,
     ) -> Dict:
         """
         执行采集任务。
@@ -238,7 +242,7 @@ class CrawlService:
         3. 每页抓完立即保存到文件和数据库
         4. 可选：抓取详情页 JD
         5. 记录采集日志
-        6. 爬取完成后关闭 Chrome
+        6. 爬取完成后关闭 Chrome（除非 keep_chrome_alive=True）
 
         参数:
             keyword: 搜索关键词
@@ -249,6 +253,8 @@ class CrawlService:
             output_format: 输出格式 json/csv
             db_session: 数据库会话（可选，传入则写入数据库）
             skip_env_check: 是否跳过环境检查（跳过则直接启动 Chrome）
+            keep_chrome_alive: 是否在采集完成后保持 Chrome 运行（不关闭）
+                              用于多关键词场景，最后一个关键词采集完才关闭
 
         返回:
             采集结果摘要字典
@@ -281,27 +287,65 @@ class CrawlService:
             # check_environment 成功后 self.connector 已连接到有头 Chrome
             # 直接复用该连接
         else:
-            # skip_env_check=True 时，自行启动 Chrome
-            self._log("正在启动 Chrome（有头模式）...")
-            try:
-                self.connector = CDPConnector()
-                if not self.connector.is_chrome_running():
-                    self.connector.start_chrome(headless=False)
-                self.connector.connect()
-                self.connector._inject_beforeunload_handler()
-            except Exception as e:
-                self._log(f"Chrome 连接失败: {e}", "error")
-                return {
-                    "success": False,
-                    "error": f"Cannot start Chrome CDP: {e}.",
-                    "total_jobs": 0,
-                }
+            # skip_env_check=True 时：
+            # - 如果 self.connector 已存在（复用场景），只重新连接 WebSocket
+            # - 如果 self.connector 不存在，自行启动 Chrome
+            if self.connector and self.connector.is_chrome_running():
+                # 复用已有 Chrome 连接，只重新建立 WebSocket
+                self._log("复用已有 Chrome 连接...")
+                try:
+                    # 如果 WebSocket 断开了，重新连接
+                    if not self.connector.ws:
+                        self.connector.connect()
+                        self.connector._inject_beforeunload_handler()
+                except Exception as e:
+                    self._log(f"重新连接 Chrome 失败: {e}，尝试重新启动...", "warn")
+                    try:
+                        self.connector = CDPConnector()
+                        if not self.connector.is_chrome_running():
+                            self.connector.start_chrome(headless=False)
+                        self.connector.connect()
+                        self.connector._inject_beforeunload_handler()
+                    except Exception as e2:
+                        self._log(f"Chrome 连接失败: {e2}", "error")
+                        return {
+                            "success": False,
+                            "error": f"Cannot start Chrome CDP: {e2}.",
+                            "total_jobs": 0,
+                        }
+            else:
+                # 没有已有连接，自行启动 Chrome
+                self._log("正在启动 Chrome（有头模式）...")
+                try:
+                    self.connector = CDPConnector()
+                    if not self.connector.is_chrome_running():
+                        self.connector.start_chrome(headless=False)
+                    self.connector.connect()
+                    self.connector._inject_beforeunload_handler()
+                except Exception as e:
+                    self._log(f"Chrome 连接失败: {e}", "error")
+                    return {
+                        "success": False,
+                        "error": f"Cannot start Chrome CDP: {e}.",
+                        "total_jobs": 0,
+                    }
 
         self._log("Chrome 连接成功，页面就绪")
 
         fetcher = JobListFetcher(self.connector)
         # 注入日志回调到列表采集器
         fetcher.log_callback = self.log_callback
+        # 注入登录要求回调到列表采集器（包装一层以检测用户取消）
+        if self.auth_required_callback:
+            _original_callback = self.auth_required_callback
+            def _wrapped_callback(reason: str, code: int) -> bool:
+                result = _original_callback(reason, code)
+                if not result:
+                    self._login_cancelled = True
+                return result
+            fetcher.auth_required_callback = _wrapped_callback
+        else:
+            fetcher.auth_required_callback = None
         all_jobs: List[Dict] = []
 
         self._log(f"开始采集：关键词='{keyword}'，城市={city}，页数={pages}")
@@ -312,6 +356,9 @@ class CrawlService:
             all_jobs = batch
             page_num += 1
             self._log(f"第 {page_num}/{pages} 页采集完成，累计 {len(all_jobs)} 条")
+            # 给每条岗位数据打上搜索关键词标记
+            for job in all_jobs:
+                job["keyword"] = keyword
             # 每页抓完立即保存文件（增量写入）
             self.writer.save_json(all_jobs)
 
@@ -320,6 +367,32 @@ class CrawlService:
                 self._save_to_db(db_session, all_jobs)
 
         self._log(f"列表采集完成，共 {len(all_jobs)} 条职位")
+
+        # 如果成功采集到数据（>0条），删除同关键词+同城市的旧岗位数据
+        # 避免新旧数据混杂，保证数据时效性
+        if all_jobs and db_session:
+            deleted_count = self._delete_old_jobs(db_session, keyword, city)
+            if deleted_count > 0:
+                self._log(f"已删除 {keyword}/{city} 的旧岗位数据 {deleted_count} 条")
+
+        # 如果用户取消了登录，返回失败结果
+        if self._login_cancelled:
+            if keep_chrome_alive:
+                # 取消登录时无论 keep_chrome_alive 如何，都关闭 Chrome
+                pass
+            self._log("[INFO] 用户取消登录，正在关闭 Chrome...")
+            if self.connector:
+                self.connector.close()
+                self.connector.stop_chrome()
+                self.connector = None
+            return {
+                "success": False,
+                "error": "用户取消登录，采集已停止",
+                "total_jobs": 0,
+                "keyword": keyword,
+                "city": city,
+                "pages": pages,
+            }
 
         # 详情页抓取
         if fetch_detail and all_jobs:
@@ -347,12 +420,18 @@ class CrawlService:
                 filters=filters,
             )
 
-        # 爬取完成后关闭 Chrome
-        self._log("[INFO] 采集完成，正在关闭 Chrome...")
-        if self.connector:
-            self.connector.close()
-            self.connector.stop_chrome()
-            self.connector = None
+        # 爬取完成后关闭 Chrome（除非 keep_chrome_alive=True）
+        if keep_chrome_alive:
+            self._log("[INFO] 采集完成，Chrome 保持运行状态（等待后续任务）...")
+            # 只关闭 WebSocket，不关闭 Chrome 进程
+            if self.connector:
+                self.connector.close()  # close() 只关闭 WebSocket，不关闭 Chrome
+        else:
+            self._log("[INFO] 采集完成，正在关闭 Chrome...")
+            if self.connector:
+                self.connector.close()
+                self.connector.stop_chrome()
+                self.connector = None
 
         return {
             "success": True,
@@ -409,6 +488,52 @@ class CrawlService:
                 db_session.add(Job(**filtered))
 
         db_session.commit()
+
+    @staticmethod
+    def _delete_old_jobs(db_session, keyword: str, city: str) -> int:
+        """
+        删除同关键词+同城市的旧岗位数据。
+
+        在新数据成功入库后调用，确保同一关键词和城市的岗位列表
+        只保留最新一次采集的结果，避免新旧数据混杂。
+
+        参数:
+            keyword: 搜索关键词
+            city: 搜索城市
+
+        返回:
+            删除的记录数
+        """
+        from src.models.job import Job
+        from sqlalchemy import and_
+
+        # 查询并删除同 keyword + city 的旧数据
+        # 注意：新数据已经在 _save_to_db 中通过 job_id 去重更新过了，
+        # 这里删除的是 job_id 不同但 keyword+city 相同的旧岗位
+        old_jobs = (
+            db_session.query(Job)
+            .filter(
+                and_(
+                    Job.keyword == keyword,
+                    Job.city == city,
+                )
+            )
+            .all()
+        )
+
+        # 排除刚刚入库的数据（fetch_time 为今天的）
+        from datetime import datetime, date
+        today_start = datetime.combine(date.today(), datetime.min.time())
+        delete_count = 0
+        for job in old_jobs:
+            if job.fetch_time and job.fetch_time < today_start:
+                db_session.delete(job)
+                delete_count += 1
+
+        if delete_count > 0:
+            db_session.commit()
+
+        return delete_count
 
     @staticmethod
     def _log_crawl(

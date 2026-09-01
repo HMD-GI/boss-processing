@@ -12,6 +12,8 @@
         <span v-if="data.personal.phone">{{ data.personal.phone }}</span>
         <span v-if="data.personal.phone && data.personal.email" class="re-dot">·</span>
         <span v-if="data.personal.email">{{ data.personal.email }}</span>
+        <span v-if="data.personal.wechat" class="re-dot">·</span>
+        <span v-if="data.personal.wechat">{{ data.personal.wechat }}</span>
         <span v-if="data.personal.github" class="re-dot">·</span>
         <span v-if="data.personal.github">{{ data.personal.github }}</span>
         <span v-if="data.personal.blog" class="re-dot">·</span>
@@ -97,6 +99,7 @@
 defineProps({
   data: { type: Object, required: true },
   color: { type: String, default: '#5b8c5a' },
+  editMode: { type: Boolean, default: false },
 })
 </script>
 

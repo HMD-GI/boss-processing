@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from src.models.database import get_db
 from src.ai_assistant.assistant_service import AssistantService
 from src.ai_assistant.mongo_manager import MongoManager
+from src.services.login_manager import LoginManager
 
 router = APIRouter(prefix="/api/assistant", tags=["ai-assistant"])
 
@@ -39,6 +40,12 @@ class NewChatRequest(BaseModel):
     """新建对话请求"""
     user_id: str = Field(default="default_user", description="用户标识")
     title: str = Field(default="新对话", description="对话标题")
+
+
+class LoginConfirmRequest(BaseModel):
+    """登录确认请求"""
+    session_id: str = Field(..., description="登录会话ID")
+    success: bool = Field(default=True, description="是否成功完成登录")
 
 
 # ========== 对话接口 ==========
@@ -128,6 +135,28 @@ def new_chat(req: NewChatRequest):
         return {"conversation_id": conversation_id, "title": req.title}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"创建对话失败: {e}")
+
+
+@router.post("/login-confirm")
+def confirm_login(req: LoginConfirmRequest):
+    """
+    用户完成登录/验证后，前端调用此接口通知后端继续爬取。
+
+    流程：
+    1. 爬虫检测到未登录/风控 → SSE 推送 login_required 事件（含 session_id）
+    2. 前端弹出对话框，引导用户在 Chrome 中完成登录/验证
+    3. 用户完成后，前端调用此接口
+    4. 后端解除爬虫线程的阻塞，继续采集
+    """
+    login_manager = LoginManager()
+    if req.success:
+        ok = login_manager.confirm_login(req.session_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="登录会话不存在或已过期")
+        return {"status": "success", "message": "登录确认已收到，将继续采集"}
+    else:
+        login_manager.cancel_login(req.session_id)
+        return {"status": "cancelled", "message": "已取消登录"}
 
 
 @router.get("/check")

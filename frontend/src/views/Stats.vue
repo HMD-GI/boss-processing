@@ -245,7 +245,7 @@ onMounted(loadStats)
 }
 
 .stat-card {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: var(--radius-md);
   padding: 24px;
   display: flex;
@@ -309,7 +309,7 @@ onMounted(loadStats)
 }
 
 .chart-card {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -342,7 +342,7 @@ onMounted(loadStats)
 
 /* ========== 排行榜 ========== */
 .ranking-card {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -362,7 +362,7 @@ onMounted(loadStats)
 }
 
 .ranking-item:hover {
-  background: #f8f9fc;
+  background: var(--bg-table-header);
 }
 
 .ranking-item:last-child {
@@ -378,7 +378,7 @@ onMounted(loadStats)
   justify-content: center;
   font-size: 14px;
   font-weight: 700;
-  background: #f0f2f5;
+  background: var(--bg-page);
   color: var(--text-secondary);
   flex-shrink: 0;
 }
@@ -420,7 +420,7 @@ onMounted(loadStats)
 .rank-bar-wrapper {
   width: 100%;
   height: 6px;
-  background: #f0f2f5;
+  background: var(--bg-page);
   border-radius: 3px;
   overflow: hidden;
 }

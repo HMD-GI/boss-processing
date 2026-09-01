@@ -5,12 +5,12 @@
       <div class="tt-header-info">
         <h1 class="tt-name" :style="{ color: color }">{{ data.personal.name || '姓名' }}</h1>
         <p class="tt-intention">{{ data.personal.jobIntention || '求职意向' }}</p>
-        <div class="tt-contact"><span v-if="data.personal.phone">{{ data.personal.phone }}</span><span v-if="data.personal.email">| {{ data.personal.email }}</span><span v-if="data.personal.github">| {{ data.personal.github }}</span><span v-if="data.personal.blog">| {{ data.personal.blog }}</span></div>
+        <div class="tt-contact"><span v-if="data.personal.phone">{{ data.personal.phone }}</span><span v-if="data.personal.email">| {{ data.personal.email }}</span><span v-if="data.personal.wechat">| 微信: {{ data.personal.wechat }}</span><span v-if="data.personal.github">| {{ data.personal.github }}</span><span v-if="data.personal.blog">| {{ data.personal.blog }}</span></div>
       </div>
     </header>
     <div class="tt-body">
       <section v-if="data.personal.selfEvaluation" class="tt-sec"><h2 class="tt-sec-title" :style="{ color: color }">关于我</h2><p class="tt-text">{{ data.personal.selfEvaluation }}</p></section>
-      <section v-if="data.education.length" class="tt-sec"><h2 class="tt-sec-title" :style="{ color: color }">教育经历</h2><div class="tt-timeline"><div v-for="e in data.education" :key="e.id" class="tt-item"><div class="tt-dot" :style="{ background: color }"></div><div class="tt-content"><div class="tt-row"><b>{{ e.school }}</b><span class="tt-date">{{ e.startDate }}—{{ e.endDate }}</span></div><p class="tt-sub">{{ e.major }} · {{ e.degree }}</p></div></div></div></section>
+      <section v-if="data.education.length" class="tt-sec"><h2 class="tt-sec-title" :style="{ color: color }">教育经历</h2><div class="tt-timeline"><div v-for="e in data.education" :key="e.id" class="tt-item"><div class="tt-dot" :style="{ background: color }"></div><div class="tt-content"><div class="tt-row"><b>{{ e.school }}</b><span class="tt-date">{{ e.startDate }}—{{ e.endDate }}</span></div><p class="tt-sub">{{ e.major }} · {{ e.degree }}<span v-if="e.gpa"> · GPA: {{ e.gpa }}</span><span v-if="e.rank"> · 排名: {{ e.rank }}</span></p><p v-if="e.courses" class="tt-text-sm">主修课程：{{ e.courses }}</p></div></div></div></section>
       <section v-if="data.workExperience.length" class="tt-sec"><h2 class="tt-sec-title" :style="{ color: color }">工作经历</h2><div class="tt-timeline"><div v-for="w in data.workExperience" :key="w.id" class="tt-item"><div class="tt-dot" :style="{ background: color }"></div><div class="tt-content"><div class="tt-row"><b>{{ w.company }}</b><span class="tt-date">{{ w.startDate }}—{{ w.endDate }}</span></div><p class="tt-sub">{{ w.position }}</p><ul class="tt-list"><li v-for="(d,i) in w.description" :key="i">{{ d }}</li></ul></div></div></div></section>
       <section v-if="data.projects.length" class="tt-sec"><h2 class="tt-sec-title" :style="{ color: color }">项目经历</h2><div class="tt-timeline"><div v-for="p in data.projects" :key="p.id" class="tt-item"><div class="tt-dot" :style="{ background: color }"></div><div class="tt-content"><div class="tt-row"><b>{{ p.name }}</b><span class="tt-role" :style="{color}">{{ p.role }}</span></div><p v-if="p.techStack" class="tt-sub">{{ p.techStack }}</p><p v-if="p.description" class="tt-text-sm">{{ p.description }}</p></div></div></div></section>
       <div class="tt-two-col">
@@ -20,7 +20,7 @@
     </div>
   </div>
 </template>
-<script setup>defineProps({ data: { type: Object, required: true }, color: { type: String, default: '#1575bf' } })</script>
+<script setup>defineProps({ data: { type: Object, required: true }, color: { type: String, default: '#1575bf' }, editMode: { type: Boolean, default: false } })</script>
 <style scoped>
 .resume-timeline-tpl{font-family:'PingFang SC','Microsoft YaHei',sans-serif;font-size:14px;color:#333;line-height:1.6;background:#fff;width:794px;min-height:1123px}
 .tt-header{display:flex;align-items:center;gap:24px;padding:40px 40px 30px;border-bottom:3px solid var(--theme)}

@@ -63,6 +63,8 @@ def _auto_migrate() -> None:
     migrations = [
         # (表名, 列名, 列定义SQL)
         ("crawl_log", "filters_json", "JSON"),
+        ("job", "detail_url", "VARCHAR(512)"),
+        ("job", "keyword", "VARCHAR(64)"),
     ]
 
     for table_name, column_name, column_def in migrations:

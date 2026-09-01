@@ -24,6 +24,7 @@
         <div class="cl-info-grid">
           <div v-if="data.personal.phone" class="cl-info-item"><span class="cl-info-label">电话</span><span>{{ data.personal.phone }}</span></div>
           <div v-if="data.personal.email" class="cl-info-item"><span class="cl-info-label">邮箱</span><span>{{ data.personal.email }}</span></div>
+          <div v-if="data.personal.wechat" class="cl-info-item"><span class="cl-info-label">微信</span><span>{{ data.personal.wechat }}</span></div>
           <div v-if="data.personal.github" class="cl-info-item"><span class="cl-info-label">GitHub</span><span>{{ data.personal.github }}</span></div>
           <div v-if="data.personal.blog" class="cl-info-item"><span class="cl-info-label">博客</span><span>{{ data.personal.blog }}</span></div>
         </div>
@@ -120,6 +121,7 @@
 defineProps({
   data: { type: Object, required: true },
   color: { type: String, default: '#4e7282' },
+  editMode: { type: Boolean, default: false },
 })
 </script>
 

@@ -124,6 +124,20 @@
                 </el-form-item>
               </el-form>
 
+              <!-- 自定义标签 -->
+              <div class="re-custom-fields">
+                <div v-for="cf in store.getCustomFields('personal')" :key="cf.id" class="re-custom-field-row">
+                  <el-input v-model="cf.label" placeholder="标签名（如：QQ）" style="width: 35%" />
+                  <el-input v-model="cf.value" placeholder="标签值（如：123xxx）" style="flex: 1" />
+                  <el-button type="danger" text size="small" @click="store.removeCustomField('personal', cf.id)">
+                    删除
+                  </el-button>
+                </div>
+                <el-button type="primary" plain size="small" class="re-add-btn" @click="store.addCustomField('personal')">
+                  + 添加自定义标签
+                </el-button>
+              </div>
+
               <el-divider />
 
               <h3 class="re-sub-title">教育经历</h3>
@@ -184,6 +198,17 @@
                   <el-form-item label="主修课程">
                     <el-input v-model="edu.courses" placeholder="多个课程用逗号分隔" />
                   </el-form-item>
+                  <!-- 教育经历自定义标签 -->
+                  <div v-for="cf in store.getCustomFields('education', edu.id)" :key="cf.id" class="re-custom-field-row">
+                    <el-input v-model="cf.label" placeholder="标签名（如：研究方向）" style="width: 35%" />
+                    <el-input v-model="cf.value" placeholder="标签值" style="flex: 1" />
+                    <el-button type="danger" text size="small" @click="store.removeCustomField('education', cf.id, edu.id)">
+                      删除
+                    </el-button>
+                  </div>
+                  <el-button text type="primary" size="small" @click="store.addCustomField('education', edu.id)">
+                    + 添加自定义标签
+                  </el-button>
                 </el-form>
               </div>
               <el-button type="primary" plain class="re-add-btn" @click="store.addEducation">
@@ -256,6 +281,17 @@
                       </el-button>
                     </div>
                   </el-form-item>
+                  <!-- 工作经历自定义标签 -->
+                  <div v-for="cf in store.getCustomFields('work', work.id)" :key="cf.id" class="re-custom-field-row">
+                    <el-input v-model="cf.label" placeholder="标签名（如：团队规模）" style="width: 35%" />
+                    <el-input v-model="cf.value" placeholder="标签值" style="flex: 1" />
+                    <el-button type="danger" text size="small" @click="store.removeCustomField('work', cf.id, work.id)">
+                      删除
+                    </el-button>
+                  </div>
+                  <el-button text type="primary" size="small" @click="store.addCustomField('work', work.id)">
+                    + 添加自定义标签
+                  </el-button>
                 </el-form>
               </div>
               <el-button type="primary" plain class="re-add-btn" @click="store.addWork">
@@ -296,6 +332,17 @@
                   <el-form-item label="项目成果">
                     <el-input v-model="proj.achievements" type="textarea" :rows="2" placeholder="项目成果" />
                   </el-form-item>
+                  <!-- 项目经历自定义标签 -->
+                  <div v-for="cf in store.getCustomFields('project', proj.id)" :key="cf.id" class="re-custom-field-row">
+                    <el-input v-model="cf.label" placeholder="标签名（如：项目周期）" style="width: 35%" />
+                    <el-input v-model="cf.value" placeholder="标签值" style="flex: 1" />
+                    <el-button type="danger" text size="small" @click="store.removeCustomField('project', cf.id, proj.id)">
+                      删除
+                    </el-button>
+                  </div>
+                  <el-button text type="primary" size="small" @click="store.addCustomField('project', proj.id)">
+                    + 添加自定义标签
+                  </el-button>
                 </el-form>
               </div>
               <el-button type="primary" plain class="re-add-btn" @click="store.addProject">
@@ -317,6 +364,20 @@
               <el-button type="primary" plain size="small" class="re-add-btn" @click="store.addSkill">
                 + 添加技能
               </el-button>
+
+              <!-- 技能自定义标签 -->
+              <div class="re-custom-fields">
+                <div v-for="cf in store.getCustomFields('skill')" :key="cf.id" class="re-custom-field-row">
+                  <el-input v-model="cf.label" placeholder="标签名（如：英语水平）" style="width: 35%" />
+                  <el-input v-model="cf.value" placeholder="标签值（如：CET-6）" style="flex: 1" />
+                  <el-button type="danger" text size="small" @click="store.removeCustomField('skill', cf.id)">
+                    删除
+                  </el-button>
+                </div>
+                <el-button type="primary" plain size="small" class="re-add-btn" @click="store.addCustomField('skill')">
+                  + 添加自定义标签
+                </el-button>
+              </div>
 
               <el-divider />
 
@@ -353,6 +414,17 @@
                     </el-col>
                   </el-row>
                 </el-form>
+                <!-- 奖项自定义标签 -->
+                <div v-for="cf in store.getCustomFields('award', award.id)" :key="cf.id" class="re-custom-field-row">
+                  <el-input v-model="cf.label" placeholder="标签名" style="width: 35%" />
+                  <el-input v-model="cf.value" placeholder="标签值" style="flex: 1" />
+                  <el-button type="danger" text size="small" @click="store.removeCustomField('award', cf.id, award.id)">
+                    删除
+                  </el-button>
+                </div>
+                <el-button text type="primary" size="small" @click="store.addCustomField('award', award.id)">
+                  + 添加自定义标签
+                </el-button>
               </div>
               <el-button type="primary" plain class="re-add-btn" @click="store.addAward">
                 + 添加奖项
@@ -366,7 +438,17 @@
       <div class="re-preview-panel">
         <div class="re-preview-header">
           <span class="re-preview-title">实时预览</span>
-          <div class="re-preview-zoom">
+          <div class="re-preview-actions">
+            <el-tooltip :content="editMode ? '退出布局编辑' : '布局编辑（拖拽移动板块位置）'" placement="top">
+              <el-button
+                size="small"
+                :type="editMode ? 'primary' : 'default'"
+                @click="toggleEditMode"
+              >
+                <el-icon><Rank /></el-icon>
+                <span class="re-layout-btn-text">布局</span>
+              </el-button>
+            </el-tooltip>
             <el-button-group>
               <el-button size="small" @click="zoomOut">
                 <el-icon><ZoomOut /></el-icon>
@@ -378,6 +460,11 @@
             </el-button-group>
           </div>
         </div>
+        <div v-if="editMode" class="re-edit-hint">
+          <el-icon><InfoFilled /></el-icon>
+          <span>布局编辑模式：按住鼠标拖拽各板块或个人信息字段可自由移动到任意位置（上下左右），点击「布局」按钮退出</span>
+          <el-button text size="small" type="primary" @click="resetLayout">恢复默认布局</el-button>
+        </div>
         <div class="re-preview-scroll">
           <div class="re-preview-canvas" :style="{ transform: `scale(${zoom})` }">
             <div id="resume-preview" class="resume-preview-wrapper">
@@ -387,6 +474,7 @@
                 :is="currentTemplateComponent"
                 :data="store.data"
                 :color="store.data.themeColor"
+                :edit-mode="editMode"
               />
               <!-- 自定义模板 -->
               <div
@@ -399,6 +487,7 @@
                 v-else
                 :data="store.data"
                 :color="store.data.themeColor"
+                :edit-mode="editMode"
               />
             </div>
           </div>
@@ -469,10 +558,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import {
   Upload, Download, RefreshLeft, Printer,
   ZoomIn, ZoomOut, Grid, Plus, DocumentCopy, Document,
+  Rank, InfoFilled,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useResumeStore } from '../stores/resume'
@@ -505,6 +595,20 @@ const showUploadDialog = ref(false)
 const uploadRef = ref(null)
 const uploadForm = ref({ name: '', html: '' })
 const parsing = ref(false)
+const editMode = ref(false)
+
+// 监听页面关闭/刷新时清除 sessionStorage
+function handleBeforeUnload() {
+  sessionStorage.removeItem('boss-resume-data')
+}
+
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+})
 
 const presetColors = [
   '#4361ee', '#3a0ca3', '#2d6a4f', '#b5179e',
@@ -686,6 +790,13 @@ function downloadSampleTemplate() {
 
 async function exportPDF() {
   exporting.value = true
+  // 布局偏移样式在非编辑模式下也生效，直接导出即可包含布局
+  // 只需临时退出编辑模式以隐藏拖拽边框等 UI 元素
+  const wasEditMode = editMode.value
+  if (wasEditMode) {
+    editMode.value = false
+    await nextTick()
+  }
   try {
     const html2pdf = (await import('html2pdf.js')).default
     const element = document.getElementById('resume-preview')
@@ -715,6 +826,8 @@ async function exportPDF() {
     ElMessage.error('PDF 导出失败：' + e.message)
   } finally {
     exporting.value = false
+    // 恢复编辑模式
+    if (wasEditMode) editMode.value = true
   }
 }
 
@@ -832,6 +945,23 @@ function handleReset() {
     ElMessage.success('数据已重置')
   }).catch(() => {})
 }
+
+function toggleEditMode() {
+  editMode.value = !editMode.value
+  if (editMode.value) {
+    ElMessage.info('已进入布局编辑模式，拖拽各板块可调整位置')
+  } else {
+    // 退出编辑模式时，布局已自动保存到 store（拖拽时实时更新）
+    // 确保持久化到 sessionStorage
+    store.persistData()
+    ElMessage.success('布局已保存')
+  }
+}
+
+function resetLayout() {
+  store.resetLayout()
+  ElMessage.success('布局已恢复默认')
+}
 </script>
 
 <style scoped>
@@ -846,7 +976,7 @@ function handleReset() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #fff;
+  background: var(--bg-card);
   border-radius: var(--radius-md);
   padding: 12px 20px;
   box-shadow: var(--shadow-sm);
@@ -926,7 +1056,7 @@ function handleReset() {
 .re-editor-panel {
   width: 480px;
   flex-shrink: 0;
-  background: #fff;
+  background: var(--bg-card);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   display: flex;
@@ -998,7 +1128,7 @@ function handleReset() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fafbfd;
+  background: var(--bg-table-header);
 }
 
 .re-avatar-preview:hover {
@@ -1038,7 +1168,7 @@ function handleReset() {
   border-radius: 8px;
   padding: 14px;
   margin-bottom: 14px;
-  background: #fafbfd;
+  background: var(--bg-table-header);
   transition: border-color 0.2s;
 }
 
@@ -1089,10 +1219,22 @@ function handleReset() {
   margin-bottom: 10px;
 }
 
+/* 自定义标签 */
+.re-custom-fields {
+  margin-top: 8px;
+}
+
+.re-custom-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
 /* ========== 右侧预览面板 ========== */
 .re-preview-panel {
   flex: 1;
-  background: #fff;
+  background: var(--bg-card);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   display: flex;
@@ -1121,6 +1263,31 @@ function handleReset() {
   gap: 8px;
 }
 
+.re-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.re-layout-btn-text {
+  margin-left: 4px;
+}
+
+.re-edit-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  background: var(--primary-light, #e8f0fe);
+  color: var(--text-secondary);
+  font-size: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.re-edit-hint .el-button {
+  margin-left: auto;
+}
+
 .re-zoom-value {
   font-size: 12px;
   color: var(--text-secondary);
@@ -1131,7 +1298,7 @@ function handleReset() {
 .re-preview-scroll {
   flex: 1;
   overflow: auto;
-  background: #e8eaed;
+  background: var(--bg-border-light);
   padding: 24px;
   display: flex;
   justify-content: center;
@@ -1145,13 +1312,13 @@ function handleReset() {
 
 .resume-preview-wrapper {
   width: 794px;
-  background: #fff;
+  background: var(--bg-card);
 }
 
 .re-custom-render {
   width: 794px;
   min-height: 400px;
-  background: #fff;
+  background: var(--bg-card);
 }
 
 /* 隐藏滚动条美化 */
@@ -1179,7 +1346,7 @@ function handleReset() {
   border-radius: 8px;
   overflow: auto;
   max-height: 300px;
-  background: #f8f9fa;
+  background: var(--bg-table-header);
 }
 
 .re-upload-preview-inner {

@@ -9,6 +9,8 @@
           <span v-if="data.personal.phone">{{ data.personal.phone }}</span>
           <span v-if="data.personal.phone && data.personal.email" class="mn-sep">|</span>
           <span v-if="data.personal.email">{{ data.personal.email }}</span>
+          <span v-if="data.personal.wechat" class="mn-sep">|</span>
+          <span v-if="data.personal.wechat">{{ data.personal.wechat }}</span>
           <span v-if="data.personal.github" class="mn-sep">|</span>
           <span v-if="data.personal.github">{{ data.personal.github }}</span>
           <span v-if="data.personal.blog" class="mn-sep">|</span>
@@ -35,7 +37,7 @@
             <span class="mn-entry-school">{{ edu.school }} <span class="mn-entry-degree">{{ edu.degree }}</span></span>
             <span class="mn-entry-date">{{ edu.startDate }} — {{ edu.endDate }}</span>
           </div>
-          <p class="mn-entry-detail">{{ edu.major }}<span v-if="edu.gpa"> · GPA {{ edu.gpa }}</span></p>
+          <p class="mn-entry-detail">{{ edu.major }}<span v-if="edu.gpa"> · GPA {{ edu.gpa }}</span><span v-if="edu.rank"> · 排名: {{ edu.rank }}</span></p>
           <p v-if="edu.courses" class="mn-text-sm">{{ edu.courses }}</p>
         </div>
       </section>
@@ -95,6 +97,7 @@
 defineProps({
   data: { type: Object, required: true },
   color: { type: String, default: '#2c3e50' },
+  editMode: { type: Boolean, default: false },
 })
 </script>
 

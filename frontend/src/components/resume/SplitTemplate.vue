@@ -6,7 +6,9 @@
         <div class="sp-contact">
           <p v-if="data.personal.phone">📱 {{ data.personal.phone }}</p>
           <p v-if="data.personal.email">✉ {{ data.personal.email }}</p>
+          <p v-if="data.personal.wechat">💬 微信: {{ data.personal.wechat }}</p>
           <p v-if="data.personal.github">⌨ {{ data.personal.github }}</p>
+          <p v-if="data.personal.blog">🌐 {{ data.personal.blog }}</p>
         </div>
       </div>
       <div class="sp-right">
@@ -16,7 +18,7 @@
       </div>
     </div>
     <div class="sp-body">
-      <section v-if="data.education.length" class="sp-sec"><h2 class="sp-sec-title" :style="{borderColor:color}"><span :style="{background:color}">教育背景</span></h2><div v-for="e in data.education" :key="e.id" class="sp-entry"><div class="sp-row"><b>{{ e.school }}</b><span class="sp-date">{{ e.startDate }}—{{ e.endDate }}</span></div><p class="sp-sub">{{ e.major }} · {{ e.degree }}</p></div></section>
+      <section v-if="data.education.length" class="sp-sec"><h2 class="sp-sec-title" :style="{borderColor:color}"><span :style="{background:color}">教育背景</span></h2><div v-for="e in data.education" :key="e.id" class="sp-entry"><div class="sp-row"><b>{{ e.school }}</b><span class="sp-date">{{ e.startDate }}—{{ e.endDate }}</span></div><p class="sp-sub">{{ e.major }} · {{ e.degree }}<span v-if="e.gpa"> · GPA: {{ e.gpa }}</span><span v-if="e.rank"> · 排名: {{ e.rank }}</span></p><p v-if="e.courses" class="sp-text-sm">主修课程：{{ e.courses }}</p></div></section>
       <section v-if="data.workExperience.length" class="sp-sec"><h2 class="sp-sec-title" :style="{borderColor:color}"><span :style="{background:color}">工作经历</span></h2><div v-for="w in data.workExperience" :key="w.id" class="sp-entry"><div class="sp-row"><b>{{ w.company }}</b><span class="sp-date">{{ w.startDate }}—{{ w.endDate }}</span></div><p class="sp-sub">{{ w.position }}</p><ul class="sp-list"><li v-for="(d,i) in w.description" :key="i">{{ d }}</li></ul></div></section>
       <section v-if="data.projects.length" class="sp-sec"><h2 class="sp-sec-title" :style="{borderColor:color}"><span :style="{background:color}">项目经历</span></h2><div v-for="p in data.projects" :key="p.id" class="sp-entry"><div class="sp-row"><b>{{ p.name }}</b><span class="sp-role" :style="{color}">{{ p.role }}</span></div><p v-if="p.techStack" class="sp-sub">{{ p.techStack }}</p><p v-if="p.description" class="sp-text-sm">{{ p.description }}</p></div></section>
       <div class="sp-two-col">
@@ -26,7 +28,7 @@
     </div>
   </div>
 </template>
-<script setup>defineProps({ data: { type: Object, required: true }, color: { type: String, default: '#3978a3' } })</script>
+<script setup>defineProps({ data: { type: Object, required: true }, color: { type: String, default: '#3978a3' }, editMode: { type: Boolean, default: false } })</script>
 <style scoped>
 .resume-split{font-family:'PingFang SC','Microsoft YaHei',sans-serif;font-size:14px;color:#333;line-height:1.6;background:#fff;width:794px;min-height:1123px}
 .sp-top{display:flex;height:200px}

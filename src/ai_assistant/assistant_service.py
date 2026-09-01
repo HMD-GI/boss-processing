@@ -17,13 +17,14 @@ import json
 import queue
 import threading
 from datetime import datetime, date
-from typing import Dict, List, Optional, Generator, Any
+from typing import Dict, List, Optional, Generator, Any, Callable
 
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func, and_
 
 from src.models.job import Job, CrawlLog
 from src.services.crawl_service import CrawlService
+from src.services.login_manager import LoginManager
 from src.ai_assistant.keyword_parser import KeywordParser
 from src.ai_assistant.job_analyzer import JobAnalyzer
 from src.ai_assistant.mongo_manager import MongoManager
@@ -170,9 +171,24 @@ class AssistantService:
             def _run_crawl():
                 """在线程中执行爬取，日志通过队列推送。"""
                 try:
+                    # 登录事件回调：创建会话并推送到队列
+                    def _login_event_cb(reason: str, code: int) -> str:
+                        """
+                        当爬虫检测到未登录/风控时调用。
+                        通过队列推送 login_required 事件到 SSE 流，
+                        返回 session_id 供调用方等待。
+                        """
+                        login_manager = LoginManager()
+                        session_id = login_manager.create_session(reason=reason)
+                        # 推送 login_required 事件到队列（SSE 流会消费）
+                        log_queue.put(("__login_required__", session_id, reason, code))
+                        return session_id
+
                     result = self._do_crawl(
                         keyword, city, filters, db,
-                        log_callback=lambda msg, level='info': log_queue.put((msg, level))
+                        log_callback=lambda msg, level='info': log_queue.put((msg, level)),
+                        login_event_callback=_login_event_cb,
+                        event_queue=log_queue,
                     )
                     crawl_result_box["result"] = result
                 except Exception as e:
@@ -194,6 +210,30 @@ class AssistantService:
 
                 if item is None:
                     break
+
+                # 区分日志事件和登录要求事件
+                if isinstance(item, tuple) and len(item) == 4 and item[0] == "__login_required__":
+                    _, session_id, reason, code = item
+                    # 通过 SSE 推送 login_required 事件给前端
+                    yield {
+                        "type": "login_required",
+                        "session_id": session_id,
+                        "reason": reason,
+                        "code": code,
+                    }
+                    continue
+
+                # 登录成功事件
+                if isinstance(item, tuple) and len(item) == 2 and item[0] == "__login_success__":
+                    _, session_id = item
+                    yield {"type": "login_success", "session_id": session_id}
+                    continue
+
+                # 登录取消事件
+                if isinstance(item, tuple) and len(item) == 2 and item[0] == "__login_cancelled__":
+                    _, session_id = item
+                    yield {"type": "login_cancelled", "session_id": session_id}
+                    continue
 
                 msg, level = item
                 crawl_logs.append({"message": msg, "level": level, "time": datetime.now().strftime("%H:%M:%S")})
@@ -337,56 +377,73 @@ class AssistantService:
         self, db: Session, keyword: str, city: str, filters: Optional[Dict]
     ) -> bool:
         """
-        检查今天是否有匹配的爬取记录（筛选词完全相同，不多不少）。
+        检查今天是否有匹配的爬取记录（且采集到了数据）。
 
         匹配条件：
         - CrawlLog.timestamp 是今天
-        - CrawlLog.keyword == keyword
+        - CrawlLog.keyword == keyword（或 keyword 的子关键词有记录）
         - CrawlLog.city == city（都为空时也算匹配）
-        - CrawlLog.filters_json 与 filters 完全相同
         - CrawlLog.status == 'success'
+        - CrawlLog.fetched_count > 0（确保采集到了数据，不是空结果）
+
+        满足以上条件时，直接在数据库中查询分析，不需要重新爬取。
         """
         today = date.today()
         today_start = datetime.combine(today, datetime.min.time())
         today_end = datetime.combine(today, datetime.max.time())
 
-        query = db.query(CrawlLog).filter(
-            and_(
-                CrawlLog.keyword == keyword,
-                CrawlLog.timestamp >= today_start,
-                CrawlLog.timestamp <= today_end,
-                CrawlLog.status == "success",
+        # 拆分复合关键词，所有子关键词都需要有当天的成功记录
+        keywords = [kw.strip() for kw in keyword.split() if kw.strip()]
+        if not keywords:
+            keywords = [keyword]
+
+        for kw in keywords:
+            query = db.query(CrawlLog).filter(
+                and_(
+                    CrawlLog.keyword == kw,
+                    CrawlLog.timestamp >= today_start,
+                    CrawlLog.timestamp <= today_end,
+                    CrawlLog.status == "success",
+                    CrawlLog.fetched_count > 0,
+                )
             )
-        )
 
-        if city:
-            query = query.filter(CrawlLog.city == city)
-        else:
-            query = query.filter((CrawlLog.city.is_(None)) | (CrawlLog.city == ""))
+            if city:
+                query = query.filter(CrawlLog.city == city)
+            else:
+                query = query.filter((CrawlLog.city.is_(None)) | (CrawlLog.city == ""))
 
-        logs = query.all()
+            logs = query.all()
+            if not logs:
+                # 任一子关键词没有当天成功记录，需要重新爬取
+                return False
 
-        if not logs:
-            return False
-
-        # 检查筛选条件是否完全匹配
-        for log in logs:
-            if KeywordParser.filters_match(log.filters_json, filters):
-                return True
-
-        return False
+        # 所有子关键词都有当天成功记录，跳过爬取
+        return True
 
     def _do_crawl(
         self, keyword: str, city: str, filters: Optional[Dict], db: Session,
         log_callback=None,
+        login_event_callback=None,
+        event_queue=None,
     ) -> Dict:
         """调用爬虫服务采集岗位数据。
 
         如果关键词包含空格（如 "python java"），拆分为多个子关键词
         分别采集，合并结果（与采集任务模块的行为一致）。
 
+        关键设计：
+        - 所有关键词共用同一个 CrawlService 实例和 Chrome 连接
+        - 第一个关键词执行环境检查并启动 Chrome（有头模式）
+        - 后续关键词用 skip_env_check=True 复用已有连接
+        - 所有关键词采集完成后才关闭 Chrome
+        - 检测到未登录/风控时通过 SSE 通知前端，等待用户完成登录后继续
+
         参数:
             log_callback: 日志回调函数 (message, level) -> None
+            login_event_callback: 登录事件回调 (reason, code) -> session_id
+                用于通过 SSE 向前端推送 login_required 事件，并等待用户完成登录。
+            event_queue: 事件队列，用于向 SSE 流推送登录成功/取消事件
         """
         # 如果没有指定城市，使用默认城市"上海"
         crawl_city = city if city else "上海"
@@ -399,24 +456,81 @@ class AssistantService:
         total_jobs = 0
         errors = []
 
+        # 创建一个共用的 CrawlService 实例
+        service = CrawlService()
+        if log_callback:
+            service.log_callback = log_callback
+
+        # 设置登录要求回调
+        # 当爬虫检测到未登录/风控时，通过 SSE 通知前端并等待用户登录
+        if login_event_callback:
+            def _auth_callback(reason: str, code: int) -> bool:
+                """登录要求回调：通过 SSE 通知前端，等待用户完成登录。"""
+                try:
+                    # 通过回调向 SSE 流推送 login_required 事件
+                    # login_event_callback 返回 session_id，用于等待用户完成登录
+                    login_session_id = login_event_callback(reason, code)
+                    if login_session_id:
+                        # 等待用户完成登录
+                        login_manager = LoginManager()
+                        success = login_manager.wait_for_login(
+                            login_session_id,
+                            timeout=300,
+                        )
+                        if success:
+                            if log_callback:
+                                log_callback("  [OK] 用户已完成登录，继续采集...", "info")
+                            # 通过队列推送 login_success 事件给 SSE 流
+                            if event_queue:
+                                event_queue.put(("__login_success__", login_session_id))
+                            # 用户已在 Chrome 中完成登录，只需重新连接 WebSocket
+                            # 不关闭 Chrome 页面，不重启 Chrome 进程
+                            try:
+                                if service.connector:
+                                    # 关闭旧 WebSocket（不关闭 Chrome）
+                                    if service.connector.ws:
+                                        service.connector.close()
+                                    # 重新连接到已有 Chrome 页面
+                                    service.connector.connect()
+                            except Exception as e:
+                                if log_callback:
+                                    log_callback(f"  [WARN] 重新连接 Chrome: {e}", "warn")
+                            return True
+                        else:
+                            if log_callback:
+                                log_callback("  [WARN] 用户未完成登录，取消采集", "warn")
+                            # 通过队列推送 login_cancelled 事件给 SSE 流
+                            if event_queue:
+                                event_queue.put(("__login_cancelled__", login_session_id))
+                            return False
+                    return False
+                except Exception as e:
+                    if log_callback:
+                        log_callback(f"  [ERROR] 登录回调异常: {e}", "error")
+                    return False
+
+            service.auth_required_callback = _auth_callback
+
         for i, kw in enumerate(keywords):
             if len(keywords) > 1:
                 if log_callback:
                     log_callback(f"  [CRAWL] 子关键词 {i+1}/{len(keywords)}: {kw}", "info")
 
-            service = CrawlService()
-            # 设置日志回调，将爬虫日志实时推送给调用方
-            if log_callback:
-                service.log_callback = log_callback
+            # 第一个关键词：执行环境检查（启动 Chrome）
+            # 后续关键词：跳过环境检查，复用已有 Chrome 连接
+            # 最后一个关键词：采集完成后关闭 Chrome
+            is_last = (i == len(keywords) - 1)
 
             result = service.crawl(
                 keyword=kw,
                 city=crawl_city,
                 pages=2,
                 fetch_detail=False,  # AI助手模式不需要详情页，列表数据足够
-                filters=filters,
+                filters=None,  # 爬虫采集时不传筛选条件，采集所有数据；筛选条件在数据库查询阶段应用
                 output_format="json",
                 db_session=db,
+                skip_env_check=(i > 0),  # 第一个关键词不跳过，后续跳过
+                keep_chrome_alive=(not is_last),  # 最后一个关键词采集完才关闭 Chrome
             )
 
             if result.get("success"):
@@ -425,6 +539,17 @@ class AssistantService:
                 errors.append(result.get("error", "未知错误"))
                 # 环境检查失败时直接返回，不继续采集
                 if result.get("env_check_failed"):
+                    return result
+                # 用户取消登录时，关闭 Chrome 并停止采集
+                if "取消" in result.get("error", "") or "取消采集" in result.get("error", ""):
+                    # 确保 Chrome 被关闭
+                    try:
+                        if service.connector:
+                            service.connector.close()
+                            service.connector.stop_chrome()
+                            service.connector = None
+                    except Exception:
+                        pass
                     return result
 
         if total_jobs > 0:
@@ -490,10 +615,19 @@ class AssistantService:
         if city:
             query = query.filter(Job.city == city)
 
-        # 经验匹配
+        # 经验匹配（智能匹配）
         experience = keywords.get("experience", "").strip()
         if experience and experience != "不限":
-            query = query.filter(Job.experience == experience)
+            # 构建经验匹配条件列表
+            exp_conditions = [Job.experience == experience]
+            # 经验不限的岗位始终匹配（不限经验意味着任何经验都可以）
+            exp_conditions.append(Job.experience == "经验不限")
+            # 用户没有经验/应届/1年以内时，也匹配这些低门槛选项
+            if experience in ("应届毕业生", "1年以内"):
+                # 无经验的用户也可以看应届和1年以内的岗位
+                exp_conditions.append(Job.experience == "应届毕业生")
+                exp_conditions.append(Job.experience == "1年以内")
+            query = query.filter(or_(*exp_conditions))
 
         # 学历匹配
         degree = keywords.get("degree", "").strip()

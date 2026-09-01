@@ -6,12 +6,12 @@
       <div class="rh-info">
         <h1 class="rh-name" :style="{ color: color }">{{ data.personal.name || '姓名' }}</h1>
         <p class="rh-intention">{{ data.personal.jobIntention || '求职意向' }}</p>
-        <div class="rh-contact"><span v-if="data.personal.phone">{{ data.personal.phone }}</span><span v-if="data.personal.email">| {{ data.personal.email }}</span><span v-if="data.personal.github">| {{ data.personal.github }}</span></div>
+        <div class="rh-contact"><span v-if="data.personal.phone">{{ data.personal.phone }}</span><span v-if="data.personal.email">| {{ data.personal.email }}</span><span v-if="data.personal.wechat">| 微信: {{ data.personal.wechat }}</span><span v-if="data.personal.github">| {{ data.personal.github }}</span><span v-if="data.personal.blog">| {{ data.personal.blog }}</span></div>
       </div>
     </div>
     <div class="rh-body">
       <section v-if="data.personal.selfEvaluation" class="rh-sec"><div class="rh-sec-title" :style="{ color: color }">自我评价</div><p class="rh-text">{{ data.personal.selfEvaluation }}</p></section>
-      <section v-if="data.education.length" class="rh-sec"><div class="rh-sec-title" :style="{ color: color }">教育背景</div><div v-for="e in data.education" :key="e.id" class="rh-entry"><div class="rh-row"><b>{{ e.school }}</b><span class="rh-date">{{ e.startDate }}—{{ e.endDate }}</span></div><p class="rh-sub">{{ e.major }} · {{ e.degree }}</p></div></section>
+      <section v-if="data.education.length" class="rh-sec"><div class="rh-sec-title" :style="{ color: color }">教育背景</div><div v-for="e in data.education" :key="e.id" class="rh-entry"><div class="rh-row"><b>{{ e.school }}</b><span class="rh-date">{{ e.startDate }}—{{ e.endDate }}</span></div><p class="rh-sub">{{ e.major }} · {{ e.degree }}<span v-if="e.gpa"> · GPA: {{ e.gpa }}</span><span v-if="e.rank"> · 排名: {{ e.rank }}</span></p><p v-if="e.courses" class="rh-text-sm">主修课程：{{ e.courses }}</p></div></section>
       <section v-if="data.workExperience.length" class="rh-sec"><div class="rh-sec-title" :style="{ color: color }">工作经历</div><div v-for="w in data.workExperience" :key="w.id" class="rh-entry"><div class="rh-row"><b>{{ w.company }}</b><span class="rh-date">{{ w.startDate }}—{{ w.endDate }}</span></div><p class="rh-sub">{{ w.position }}</p><ul class="rh-list"><li v-for="(d,i) in w.description" :key="i">{{ d }}</li></ul></div></section>
       <section v-if="data.projects.length" class="rh-sec"><div class="rh-sec-title" :style="{ color: color }">项目经历</div><div v-for="p in data.projects" :key="p.id" class="rh-entry"><div class="rh-row"><b>{{ p.name }}</b><span class="rh-role" :style="{color}">{{ p.role }}</span></div><p v-if="p.techStack" class="rh-sub">{{ p.techStack }}</p><p v-if="p.description" class="rh-text-sm">{{ p.description }}</p></div></section>
       <div class="rh-two-col">
@@ -21,7 +21,7 @@
     </div>
   </div>
 </template>
-<script setup>defineProps({ data: { type: Object, required: true }, color: { type: String, default: '#5695c3' } })</script>
+<script setup>defineProps({ data: { type: Object, required: true }, color: { type: String, default: '#5695c3' }, editMode: { type: Boolean, default: false } })</script>
 <style scoped>
 .resume-header-tpl{font-family:'PingFang SC','Microsoft YaHei',sans-serif;font-size:14px;color:#333;line-height:1.6;background:#fff;width:794px;min-height:1123px}
 .rh-top{text-align:center;padding:6px 0;color:#fff;font-size:12px;letter-spacing:4px;font-weight:600}

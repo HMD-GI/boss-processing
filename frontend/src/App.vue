@@ -57,6 +57,12 @@
           </el-breadcrumb>
         </div>
         <div class="topbar-right">
+          <el-tooltip :content="isDark ? '切换到白天模式' : '切换到夜间模式'" placement="bottom">
+            <el-icon :size="20" class="topbar-icon theme-toggle-btn" @click="toggleTheme">
+              <Sunny v-if="isDark" />
+              <Moon v-else />
+            </el-icon>
+          </el-tooltip>
           <el-tooltip content="刷新数据" placement="bottom">
             <el-icon :size="18" class="topbar-icon" @click="refreshPage">
               <Refresh />
@@ -90,12 +96,32 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   DataAnalysis, List, PieChart, Download, Document,
-  Fold, Expand, Refresh, Link, ChatDotRound,
+  Fold, Expand, Refresh, Link, ChatDotRound, Sunny, Moon,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const isCollapsed = ref(false)
+const isDark = ref(localStorage.getItem('theme') === 'dark')
+
+// 初始化主题
+function applyTheme() {
+  const root = document.documentElement
+  if (isDark.value) {
+    root.classList.add('dark')
+  } else {
+    root.classList.remove('dark')
+  }
+}
+
+function toggleTheme() {
+  isDark.value = !isDark.value
+  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
+  applyTheme()
+}
+
+// 页面加载时立即应用主题
+applyTheme()
 
 const menuItems = [
   { path: '/jobs', label: '职位列表', icon: List },
@@ -260,7 +286,7 @@ function refreshPage() {
 /* ========== 顶栏 ========== */
 .topbar {
   height: 60px;
-  background: #fff;
+  background: var(--bg-topbar);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -269,6 +295,7 @@ function refreshPage() {
   position: sticky;
   top: 0;
   z-index: 999;
+  transition: background 0.3s ease;
 }
 
 .topbar-left {
@@ -334,6 +361,16 @@ function refreshPage() {
   padding: 24px;
   max-width: 1600px;
   width: 100%;
+}
+
+/* ========== 主题切换按钮 ========== */
+.theme-toggle-btn {
+  transition: transform 0.3s ease, color 0.2s ease;
+}
+
+.theme-toggle-btn:hover {
+  transform: rotate(180deg);
+  color: var(--primary);
 }
 
 /* ========== 过渡动画 ========== */

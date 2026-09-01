@@ -37,6 +37,8 @@ class JobListFetcher:
         """
         self.cdp = cdp_connector
         self.log_callback = None  # 日志回调函数: (message, level) -> None
+        self.auth_required_callback = None  # 登录/验证要求回调: (reason, code) -> bool
+        # 返回 True 表示用户已完成登录，可重试；False 表示放弃
 
     def _log(self, message: str, level: str = "info"):
         """输出日志到控制台和回调函数。"""
@@ -191,12 +193,67 @@ class JobListFetcher:
 
             if data.get("code") != 0:
                 error_msg = data.get("message", "unknown error")
+                code = data.get("code")
                 self._log(f"  [FAIL] Page {page}: {error_msg}", "error")
+
                 # 风控码检测
-                if data.get("code") in settings.RISK_CONTROL_CODES:
-                    self._log(f"  [WARN] Risk control triggered, stopping.", "warn")
-                    break
-                continue
+                if code in settings.RISK_CONTROL_CODES:
+                    self._log(f"  [WARN] Risk control triggered (code={code}), stopping.", "warn")
+                    # 尝试通知上层需要验证
+                    if self.auth_required_callback:
+                        retry = self.auth_required_callback(
+                            f"触发风控限制 (code={code}: {error_msg})",
+                            code,
+                        )
+                        if retry:
+                            # 用户已完成验证，重试当前页
+                            self._log(f"  [RETRY] 用户已完成验证，重试 Page {page}...")
+                            data = self.fetch_page(keyword, city_code, page, filters)
+                            if data and isinstance(data, dict) and data.get("code") == 0:
+                                # 重试成功，继续处理当前页数据（不 continue）
+                                pass
+                            else:
+                                continue
+                        else:
+                            break
+                    else:
+                        break
+                    # 如果走到这里说明重试成功了，继续往下处理数据
+
+                # 检测未登录情况（code 非 0 且非风控码）
+                # BOSS 可能返回 message="用户未登录" 或其他登录失效提示
+                is_login_issue = (
+                    "登录" in error_msg
+                    or "login" in error_msg.lower()
+                    or code in {-1, -2, 1001, 1002}
+                )
+                if is_login_issue and self.auth_required_callback:
+                    self._log(f"  [WARN] 检测到登录失效 (code={code}: {error_msg})，通知前端...", "warn")
+                    retry = self.auth_required_callback(
+                        f"登录失效 (code={code}: {error_msg})",
+                        code,
+                    )
+                    if retry:
+                        # 用户已完成登录，重试当前页
+                        self._log(f"  [RETRY] 用户已完成登录，重试 Page {page}...")
+                        data = self.fetch_page(keyword, city_code, page, filters)
+                        if data and isinstance(data, dict) and data.get("code") == 0:
+                            # 重试成功，继续正常流程
+                            pass
+                        else:
+                            # 重试后仍失败
+                            retry_msg = data.get("message", "unknown") if isinstance(data, dict) else "no data"
+                            self._log(f"  [FAIL] 重试后仍失败: {retry_msg}", "error")
+                            continue
+                    else:
+                        # 用户放弃登录
+                        self._log(f"  [WARN] 用户取消登录，停止采集", "warn")
+                        break
+                else:
+                    # 非登录问题或无回调，原逻辑
+                    if code in settings.RISK_CONTROL_CODES:
+                        break
+                    continue
 
             job_list = data.get("zpData", {}).get("jobList", [])
             if not job_list:
@@ -276,6 +333,15 @@ class JobListFetcher:
             # 详情页所需上下文
             "security_id": raw.get("securityId", ""),
             "lid": raw.get("lid", ""),
+            # 详情页网址
+            "detail_url": (
+                settings.BOSS_DETAIL_URL_TEMPLATE.format(
+                    job_id=raw.get("encryptJobId", ""),
+                    lid=raw.get("lid", ""),
+                    security_id=urllib.parse.quote(raw.get("securityId", ""), safe=""),
+                )
+                if raw.get("encryptJobId") else ""
+            ),
             # 采集时间
             "fetch_time": time.strftime("%Y-%m-%d %H:%M:%S"),
         }

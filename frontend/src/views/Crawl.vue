@@ -471,7 +471,7 @@ onUnmounted(() => {
 .env-card,
 .log-card,
 .live-log-card {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   margin-bottom: 20px;
@@ -603,7 +603,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
-  background: #f8f9fc;
+  background: var(--bg-table-header);
   border-radius: var(--radius-sm);
 }
 
@@ -642,7 +642,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  background: #f8f9fc;
+  background: var(--bg-table-header);
   border-radius: var(--radius-sm);
 }
 
@@ -692,7 +692,7 @@ onUnmounted(() => {
   align-items: flex-start;
   gap: 6px;
   padding: 8px 12px;
-  background: #fff3f5;
+  background: var(--bg-table-row-hover);
   border-radius: var(--radius-sm);
   font-size: 12px;
   color: var(--danger);
@@ -795,7 +795,7 @@ onUnmounted(() => {
   align-items: flex-start;
   gap: 6px;
   padding: 6px 10px;
-  background: #fff3f5;
+  background: var(--bg-table-row-hover);
   border-radius: 6px;
   font-size: 12px;
   color: var(--danger);

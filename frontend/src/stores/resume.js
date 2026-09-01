@@ -14,6 +14,35 @@ function createDefaultResume() {
   return {
     templateId: 'modern',
     themeColor: '#4361ee',
+    // 板块排序（拖拽编辑后可调整）
+    sectionOrder: ['selfEvaluation', 'education', 'workExperience', 'projects', 'skills', 'awards'],
+    // 个人信息字段排序
+    personalFieldOrder: ['name', 'jobIntention', 'phone', 'email', 'wechat', 'github', 'blog'],
+    // 板块自由位置偏移（编辑模式下拖拽产生）
+    sectionPositions: {},
+    // 个人信息字段自由位置偏移
+    personalFieldPositions: {},
+    // 板块尺寸（编辑模式下 resize 产生）
+    sectionSizes: {},
+    // 个人信息字段尺寸
+    personalFieldSizes: {},
+    // 自定义标签：{ personal: [{id, label, value}], education: [{eduId, items:[{id,label,value}]}], ... }
+    customFields: {
+      personal: [],
+      education: [],
+      work: [],
+      project: [],
+      award: [],
+      skill: [],
+    },
+    // 自定义标签的位置偏移（编辑模式下拖拽产生）
+    customFieldPositions: {},
+    // 自定义标签的尺寸（编辑模式下 resize 产生）
+    customFieldSizes: {},
+    // 模块内部子字段的位置偏移（如教育经历1中的学校、专业等）
+    subFieldPositions: {},
+    // 模块内部子字段的尺寸
+    subFieldSizes: {},
     personal: {
       name: '张三',
       avatar: '',
@@ -93,20 +122,20 @@ export const useResumeStore = defineStore('resume', () => {
   const STORAGE_KEY = 'boss-resume-data'
   const CUSTOM_TPL_KEY = 'boss-resume-custom-templates'
 
-  // 从 localStorage 恢复数据
+  // 从 sessionStorage 恢复数据（关闭网页/项目后自动清除，切换模块时保留）
   function loadFromStorage() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY)
+      const saved = sessionStorage.getItem(STORAGE_KEY)
       if (saved) {
         return JSON.parse(saved)
       }
     } catch (e) {
-      console.warn('[ResumeStore] Failed to load from localStorage:', e)
+      console.warn('[ResumeStore] Failed to load from sessionStorage:', e)
     }
     return null
   }
 
-  // 从 localStorage 恢复自定义模板
+  // 从 localStorage 恢复自定义模板（模板配置持久保留）
   function loadCustomTemplates() {
     try {
       const saved = localStorage.getItem(CUSTOM_TPL_KEY)
@@ -122,14 +151,14 @@ export const useResumeStore = defineStore('resume', () => {
   const data = ref(loadFromStorage() || createDefaultResume())
   const customTemplates = ref(loadCustomTemplates())
 
-  // 自动持久化到 localStorage
+  // 自动持久化到 sessionStorage（关闭网页/项目后自动清除，切换模块时保留）
   watch(
     data,
     (newVal) => {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newVal))
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(newVal))
       } catch (e) {
-        console.warn('[ResumeStore] Failed to save to localStorage:', e)
+        console.warn('[ResumeStore] Failed to save to sessionStorage:', e)
       }
     },
     { deep: true }
@@ -280,10 +309,24 @@ export const useResumeStore = defineStore('resume', () => {
     const currentTemplate = data.value.templateId
     const currentColor = data.value.themeColor
     const currentAvatar = data.value.personal.avatar
+    const currentSectionOrder = data.value.sectionOrder || createDefaultResume().sectionOrder
+    const currentPersonalFieldOrder = data.value.personalFieldOrder || createDefaultResume().personalFieldOrder
+    const currentSectionPositions = data.value.sectionPositions || {}
+    const currentPersonalFieldPositions = data.value.personalFieldPositions || {}
+    const currentSectionSizes = data.value.sectionSizes || {}
+    const currentPersonalFieldSizes = data.value.personalFieldSizes || {}
+    const currentCustomFields = data.value.customFields || { personal: [], education: [], work: [], project: [], award: [], skill: [] }
 
     data.value = {
       templateId: parsed.templateId || currentTemplate,
       themeColor: parsed.themeColor || currentColor,
+      sectionOrder: parsed.sectionOrder || currentSectionOrder,
+      personalFieldOrder: parsed.personalFieldOrder || currentPersonalFieldOrder,
+      sectionPositions: parsed.sectionPositions || currentSectionPositions,
+      personalFieldPositions: parsed.personalFieldPositions || currentPersonalFieldPositions,
+      sectionSizes: parsed.sectionSizes || currentSectionSizes,
+      personalFieldSizes: parsed.personalFieldSizes || currentPersonalFieldSizes,
+      customFields: parsed.customFields || currentCustomFields,
       personal: {
         ...data.value.personal,
         ...parsed.personal,
@@ -304,6 +347,128 @@ export const useResumeStore = defineStore('resume', () => {
 
   function resetData() {
     data.value = createDefaultResume()
+  }
+
+  // ========== 拖拽排序 ==========
+
+  function moveSection(fromIndex, toIndex) {
+    const order = [...data.value.sectionOrder]
+    const [moved] = order.splice(fromIndex, 1)
+    order.splice(toIndex, 0, moved)
+    data.value.sectionOrder = order
+  }
+
+  function movePersonalField(fromIndex, toIndex) {
+    const order = [...data.value.personalFieldOrder]
+    const [moved] = order.splice(fromIndex, 1)
+    order.splice(toIndex, 0, moved)
+    data.value.personalFieldOrder = order
+  }
+
+  function resetLayout() {
+    data.value.sectionOrder = createDefaultResume().sectionOrder
+    data.value.personalFieldOrder = createDefaultResume().personalFieldOrder
+    data.value.sectionPositions = {}
+    data.value.personalFieldPositions = {}
+    data.value.sectionSizes = {}
+    data.value.personalFieldSizes = {}
+    data.value.customFieldPositions = {}
+    data.value.customFieldSizes = {}
+    data.value.subFieldPositions = {}
+    data.value.subFieldSizes = {}
+  }
+
+  function setSectionPosition(key, x, y) {
+    if (!data.value.sectionPositions) data.value.sectionPositions = {}
+    data.value.sectionPositions[key] = { x, y }
+  }
+
+  function setPersonalFieldPosition(key, x, y) {
+    if (!data.value.personalFieldPositions) data.value.personalFieldPositions = {}
+    data.value.personalFieldPositions[key] = { x, y }
+  }
+
+  function setSectionSize(key, w, h) {
+    if (!data.value.sectionSizes) data.value.sectionSizes = {}
+    data.value.sectionSizes[key] = { w, h }
+  }
+
+  function setPersonalFieldSize(key, w, h) {
+    if (!data.value.personalFieldSizes) data.value.personalFieldSizes = {}
+    data.value.personalFieldSizes[key] = { w, h }
+  }
+
+  // ========== 自定义标签管理 ==========
+  function addCustomField(category, parentId) {
+    if (!data.value.customFields) {
+      data.value.customFields = { personal: [], education: [], work: [], project: [], award: [], skill: [] }
+    }
+    if (!data.value.customFields[category]) {
+      data.value.customFields[category] = []
+    }
+    const newField = { id: Date.now() + Math.random(), label: '', value: '' }
+    if (parentId !== undefined) {
+      // 带 parentId 的（如 education/work/project/award/skill 中的某条记录）
+      let group = data.value.customFields[category].find(g => g.parentId === parentId)
+      if (!group) {
+        group = { parentId, items: [] }
+        data.value.customFields[category].push(group)
+      }
+      group.items.push(newField)
+    } else {
+      // 不带 parentId 的（如 personal）
+      data.value.customFields[category].push(newField)
+    }
+  }
+
+  function removeCustomField(category, fieldId, parentId) {
+    if (!data.value.customFields || !data.value.customFields[category]) return
+    if (parentId !== undefined) {
+      const group = data.value.customFields[category].find(g => g.parentId === parentId)
+      if (group) {
+        group.items = group.items.filter(f => f.id !== fieldId)
+      }
+    } else {
+      data.value.customFields[category] = data.value.customFields[category].filter(f => f.id !== fieldId)
+    }
+  }
+
+  function getCustomFields(category, parentId) {
+    if (!data.value.customFields || !data.value.customFields[category]) return []
+    if (parentId !== undefined) {
+      const group = data.value.customFields[category].find(g => g.parentId === parentId)
+      return group ? group.items : []
+    }
+    return data.value.customFields[category]
+  }
+
+  function setCustomFieldPosition(key, x, y) {
+    if (!data.value.customFieldPositions) data.value.customFieldPositions = {}
+    data.value.customFieldPositions[key] = { x, y }
+  }
+
+  function setCustomFieldSize(key, w, h) {
+    if (!data.value.customFieldSizes) data.value.customFieldSizes = {}
+    data.value.customFieldSizes[key] = { w, h }
+  }
+
+  function setSubFieldPosition(key, x, y) {
+    if (!data.value.subFieldPositions) data.value.subFieldPositions = {}
+    data.value.subFieldPositions[key] = { x, y }
+  }
+
+  function setSubFieldSize(key, w, h) {
+    if (!data.value.subFieldSizes) data.value.subFieldSizes = {}
+    data.value.subFieldSizes[key] = { w, h }
+  }
+
+  // 显式持久化布局数据到 sessionStorage
+  function persistData() {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data.value))
+    } catch (e) {
+      console.warn('[ResumeStore] Failed to persist data:', e)
+    }
   }
 
   return {
@@ -330,5 +495,20 @@ export const useResumeStore = defineStore('resume', () => {
     loadFromParsedData,
     exportData,
     resetData,
+    moveSection,
+    movePersonalField,
+    resetLayout,
+    setSectionPosition,
+    setPersonalFieldPosition,
+    setSectionSize,
+    setPersonalFieldSize,
+    setCustomFieldPosition,
+    setCustomFieldSize,
+    setSubFieldPosition,
+    setSubFieldSize,
+    addCustomField,
+    removeCustomField,
+    getCustomFields,
+    persistData,
   }
 })

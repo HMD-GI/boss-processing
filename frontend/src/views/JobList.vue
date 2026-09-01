@@ -113,6 +113,22 @@
             </div>
           </template>
         </el-table-column>
+        <el-table-column prop="detail_url" label="详情页链接" min-width="140">
+          <template #default="{ row }">
+            <a
+              v-if="row.detail_url"
+              href="javascript:void(0)"
+              class="detail-link"
+              :class="{ 'is-loading': detailLoading[row.job_id] }"
+              @click.stop="openJobDetail(row)"
+            >
+              <el-icon v-if="!detailLoading[row.job_id]"><Link /></el-icon>
+              <el-icon v-else class="is-loading"><Loading /></el-icon>
+              <span>{{ detailLoading[row.job_id] ? '获取中...' : '查看原页' }}</span>
+            </a>
+            <span v-else class="text-muted">-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="fetch_time" label="采集时间" width="170">
           <template #default="{ row }">
             <div class="time-cell">
@@ -157,8 +173,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Search, RefreshLeft, Location, OfficeBuilding,
-  Clock, DocumentRemove,
+  Clock, DocumentRemove, Link, Loading,
 } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '../api'
 
 const router = useRouter()
@@ -219,6 +236,68 @@ function goDetail(jobId) {
   router.push(`/jobs/${jobId}`)
 }
 
+// 详情页链接加载状态
+const detailLoading = reactive({})
+
+// 点击"查看原页"时，先检查链接是否过期
+async function openJobDetail(row) {
+  if (detailLoading[row.job_id]) return
+  detailLoading[row.job_id] = true
+  try {
+    const res = await api.getJobDetailUrl(row.job_id)
+    // 检查是否需要刷新
+    if (res.need_refresh) {
+      // 链接已过期，弹出确认框
+      try {
+        await ElMessageBox.confirm(
+          '链接可能已过期，是否在已打开的 BOSS 直聘页面中获取最新详情链接？（请确保已通过「采集任务」页面完成环境检查并登录）',
+          '链接过期提示',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning',
+          }
+        )
+        // 用户点击确定，调用刷新 API
+        const refreshRes = await api.refreshJobDetailUrl(row.job_id)
+        if (refreshRes.detail_url) {
+          // 更新当前行数据
+          row.detail_url = refreshRes.detail_url
+          if (refreshRes.fetch_time) {
+            row.fetch_time = refreshRes.fetch_time
+          }
+          window.open(refreshRes.detail_url, '_blank', 'noopener,noreferrer')
+          ElMessage.success(refreshRes.message || '已获取最新链接')
+        } else {
+          ElMessage.warning('未能获取最新链接，请稍后重试')
+        }
+      } catch (cancelErr) {
+        // 用户点击取消，使用旧链接打开
+        if (row.detail_url) {
+          window.open(row.detail_url, '_blank', 'noopener,noreferrer')
+        }
+      }
+    } else {
+      // 链接有效，直接打开
+      const url = res.detail_url || row.detail_url
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer')
+      } else {
+        ElMessage.warning('无法获取详情页链接')
+      }
+    }
+  } catch (e) {
+    // API 调用失败时回退到存储的 URL
+    if (row.detail_url) {
+      window.open(row.detail_url, '_blank', 'noopener,noreferrer')
+    } else {
+      ElMessage.error('获取详情页链接失败')
+    }
+  } finally {
+    detailLoading[row.job_id] = false
+  }
+}
+
 function handleRowClick(row) {
   goDetail(row.job_id)
 }
@@ -232,7 +311,7 @@ onMounted(() => {
 <style scoped>
 /* ========== 搜索栏 ========== */
 .search-bar {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: var(--radius-md);
   padding: 20px 24px;
   margin-bottom: 20px;
@@ -279,7 +358,7 @@ onMounted(() => {
 
 /* ========== 表格容器 ========== */
 .table-container {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -308,7 +387,7 @@ onMounted(() => {
 .table-count {
   font-size: 13px;
   color: var(--text-muted);
-  background: #f0f2f5;
+  background: var(--bg-page);
   padding: 2px 10px;
   border-radius: 20px;
 }
@@ -361,6 +440,23 @@ onMounted(() => {
 
 .text-muted {
   color: var(--text-muted);
+}
+
+/* ========== 详情页链接 ========== */
+.detail-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--primary-color, #4361ee);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.detail-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
 }
 
 /* ========== 分页 ========== */

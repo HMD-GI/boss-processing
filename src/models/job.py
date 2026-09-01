@@ -45,6 +45,8 @@ class Job(Base):
     boss_name = Column(String(32), comment="招聘者姓名")
     boss_title = Column(String(64), comment="招聘者职位")
     boss_active_status = Column(String(16), comment="招聘者在线状态")
+    detail_url = Column(String(512), comment="BOSS直聘岗位详情页网址")
+    keyword = Column(String(64), index=True, comment="搜索关键词（用于按关键词+城市清理旧数据）")
     fetch_time = Column(DateTime, default=datetime.utcnow, index=True, comment="采集时间")
 
     __table_args__ = (
@@ -70,6 +72,8 @@ class Job(Base):
             "company_name": self.company_name,
             "experience": self.experience,
             "education": self.education,
+            "detail_url": self.detail_url,
+            "keyword": self.keyword,
             "fetch_time": self.fetch_time.strftime("%Y-%m-%d %H:%M:%S") if self.fetch_time else None,
         }
         if full:

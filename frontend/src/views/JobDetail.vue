@@ -176,6 +176,19 @@
                 <span class="info-label">采集时间</span>
                 <span class="info-value">{{ job.fetch_time || '-' }}</span>
               </div>
+              <div class="info-row" v-if="job.detail_url">
+                <span class="info-label">详情页链接</span>
+                <a
+                  href="javascript:void(0)"
+                  class="detail-external-link"
+                  :class="{ 'is-loading': detailUrlLoading }"
+                  @click="openJobDetailUrl"
+                >
+                  <el-icon v-if="!detailUrlLoading"><Link /></el-icon>
+                  <el-icon v-else class="is-loading"><Loading /></el-icon>
+                  <span>{{ detailUrlLoading ? '获取中...' : '查看原页' }}</span>
+                </a>
+              </div>
             </div>
           </div>
         </el-col>
@@ -195,8 +208,9 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowLeft, Location, MapLocation, Timer, Reading,
-  Document, Star, Medal, OfficeBuilding, User, DataLine,
+  Document, Star, Medal, OfficeBuilding, User, DataLine, Link, Loading,
 } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '../api'
 
 const route = useRoute()
@@ -204,6 +218,66 @@ const router = useRouter()
 
 const loading = ref(false)
 const job = ref({})
+const detailUrlLoading = ref(false)
+
+// 点击"查看原页"时，先检查链接是否过期
+async function openJobDetailUrl() {
+  if (detailUrlLoading.value) return
+  detailUrlLoading.value = true
+  try {
+    const res = await api.getJobDetailUrl(job.value.job_id)
+    // 检查是否需要刷新
+    if (res.need_refresh) {
+      // 链接已过期，弹出确认框
+      try {
+        await ElMessageBox.confirm(
+          '链接可能已过期，是否在已打开的 BOSS 直聘页面中获取最新详情链接？（请确保已通过「采集任务」页面完成环境检查并登录）',
+          '链接过期提示',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning',
+          }
+        )
+        // 用户点击确定，调用刷新 API
+        const refreshRes = await api.refreshJobDetailUrl(job.value.job_id)
+        if (refreshRes.detail_url) {
+          // 更新当前页面数据
+          job.value.detail_url = refreshRes.detail_url
+          if (refreshRes.fetch_time) {
+            job.value.fetch_time = refreshRes.fetch_time
+          }
+          window.open(refreshRes.detail_url, '_blank', 'noopener,noreferrer')
+          ElMessage.success(refreshRes.message || '已获取最新链接')
+        } else {
+          ElMessage.warning('未能获取最新链接，请稍后重试')
+        }
+      } catch (cancelErr) {
+        // 用户点击取消，使用旧链接打开
+        if (job.value.detail_url) {
+          window.open(job.value.detail_url, '_blank', 'noopener,noreferrer')
+        }
+      }
+    } else {
+      // 链接有效，直接打开
+      const url = res.detail_url || job.value.detail_url
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer')
+      } else {
+        ElMessage.warning('无法获取详情页链接')
+      }
+    }
+  } catch (e) {
+    // API 调用失败时回退到存储的 URL
+    if (job.value.detail_url) {
+      window.open(job.value.detail_url, '_blank', 'noopener,noreferrer')
+    } else {
+      ElMessage.error('获取详情页链接失败')
+    }
+  } finally {
+    detailUrlLoading.value = false
+  }
+}
 
 // 技能去重（忽略大小写）
 const uniqueSkills = computed(() => {
@@ -312,7 +386,7 @@ onMounted(loadJob)
 
 /* ========== 信息区块 ========== */
 .info-section {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: var(--radius-md);
   margin-bottom: 20px;
   box-shadow: var(--shadow-card);
@@ -401,7 +475,7 @@ onMounted(loadJob)
 
 /* ========== 侧边卡片 ========== */
 .side-card {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: var(--radius-md);
   margin-bottom: 20px;
   box-shadow: var(--shadow-card);
@@ -466,6 +540,23 @@ onMounted(loadJob)
 .mono-text {
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 12px;
+}
+
+/* ========== 详情页外链 ========== */
+.detail-external-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--primary-color, #4361ee);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.detail-external-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
 }
 
 /* ========== 招聘者头像 ========== */

@@ -9,12 +9,14 @@
       <div class="tc-header-contact">
         <span v-if="data.personal.phone">{{ data.personal.phone }}</span>
         <span v-if="data.personal.email">{{ data.personal.email }}</span>
+        <span v-if="data.personal.wechat">微信: {{ data.personal.wechat }}</span>
         <span v-if="data.personal.github">{{ data.personal.github }}</span>
+        <span v-if="data.personal.blog">{{ data.personal.blog }}</span>
       </div>
     </header>
     <div class="tc-body">
       <section v-if="data.personal.selfEvaluation" class="tc-card"><h2 class="tc-card-title" :style="{ color: color }">自我评价</h2><p class="tc-text">{{ data.personal.selfEvaluation }}</p></section>
-      <section v-if="data.education.length" class="tc-card"><h2 class="tc-card-title" :style="{ color: color }">教育背景</h2><div v-for="e in data.education" :key="e.id" class="tc-entry"><div class="tc-row"><b>{{ e.school }}</b><span class="tc-date">{{ e.startDate }}—{{ e.endDate }}</span></div><p class="tc-sub">{{ e.major }} · {{ e.degree }}</p></div></section>
+      <section v-if="data.education.length" class="tc-card"><h2 class="tc-card-title" :style="{ color: color }">教育背景</h2><div v-for="e in data.education" :key="e.id" class="tc-entry"><div class="tc-row"><b>{{ e.school }}</b><span class="tc-date">{{ e.startDate }}—{{ e.endDate }}</span></div><p class="tc-sub">{{ e.major }} · {{ e.degree }}<span v-if="e.gpa"> · GPA: {{ e.gpa }}</span><span v-if="e.rank"> · 排名: {{ e.rank }}</span></p><p v-if="e.courses" class="tc-text-sm">主修课程：{{ e.courses }}</p></div></section>
       <section v-if="data.workExperience.length" class="tc-card"><h2 class="tc-card-title" :style="{ color: color }">工作经历</h2><div v-for="w in data.workExperience" :key="w.id" class="tc-entry"><div class="tc-row"><b>{{ w.company }}</b><span class="tc-date">{{ w.startDate }}—{{ w.endDate }}</span></div><p class="tc-sub">{{ w.position }}</p><ul class="tc-list"><li v-for="(d,i) in w.description" :key="i">{{ d }}</li></ul></div></section>
       <section v-if="data.projects.length" class="tc-card"><h2 class="tc-card-title" :style="{ color: color }">项目经历</h2><div v-for="p in data.projects" :key="p.id" class="tc-entry"><div class="tc-row"><b>{{ p.name }}</b><span class="tc-role" :style="{color}">{{ p.role }}</span></div><p v-if="p.techStack" class="tc-sub">{{ p.techStack }}</p><p v-if="p.description" class="tc-text-sm">{{ p.description }}</p></div></section>
       <div class="tc-two-col">
@@ -24,7 +26,7 @@
     </div>
   </div>
 </template>
-<script setup>defineProps({ data: { type: Object, required: true }, color: { type: String, default: '#a08f75' } })</script>
+<script setup>defineProps({ data: { type: Object, required: true }, color: { type: String, default: '#a08f75' }, editMode: { type: Boolean, default: false } })</script>
 <style scoped>
 .resume-card-tpl{font-family:'PingFang SC','Microsoft YaHei',sans-serif;font-size:14px;color:#333;line-height:1.6;background:#f5f6f8;width:794px;min-height:1123px;padding:20px}
 .tc-header{display:flex;align-items:center;gap:16px;background:#fff;border-radius:10px;padding:20px 24px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.06)}

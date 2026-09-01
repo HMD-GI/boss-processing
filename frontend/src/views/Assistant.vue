@@ -573,13 +573,13 @@ onActivated(() => {
   display: flex;
   height: calc(100vh - 60px);
   margin: -24px;
-  background: #f7f7f8;
+  background: var(--bg-table-header);
 }
 
 /* ========== 左侧对话历史 ========== */
 .conv-sidebar {
   width: 260px;
-  background: #fff;
+  background: var(--bg-card);
   border-right: 1px solid #e8ecf1;
   display: flex;
   flex-direction: column;
@@ -600,7 +600,7 @@ onActivated(() => {
 .new-chat-btn {
   width: 100%;
   border: 1px solid #e0e0e0 !important;
-  background: #fff !important;
+  background: var(--bg-card) !important;
   color: #333 !important;
   font-weight: 500;
   transition: all 0.2s;
@@ -609,7 +609,7 @@ onActivated(() => {
 .new-chat-btn:hover {
   border-color: #4361ee !important;
   color: #4361ee !important;
-  background: #f0f4ff !important;
+  background: var(--bg-table-row-hover) !important;
 }
 
 .conv-list {
@@ -631,11 +631,11 @@ onActivated(() => {
 }
 
 .conv-item:hover {
-  background: #f5f5f5;
+  background: var(--bg-table-header);
 }
 
 .conv-item.active {
-  background: #eef2ff;
+  background: var(--bg-table-row-hover);
   color: #4361ee;
 }
 
@@ -734,7 +734,7 @@ onActivated(() => {
   align-items: center;
   gap: 10px;
   padding: 16px 20px;
-  background: #fff;
+  background: var(--bg-card);
   border: 1px solid #e8ecf1;
   border-radius: 12px;
   cursor: pointer;
@@ -784,7 +784,7 @@ onActivated(() => {
 }
 
 .user-content {
-  background: #eef2ff;
+  background: var(--bg-table-row-hover);
   color: #1a1a2e;
   padding: 12px 16px;
   border-radius: 12px 12px 4px 12px;
@@ -823,7 +823,7 @@ onActivated(() => {
   border: 1px solid #e8ecf1;
   border-radius: 8px;
   overflow: hidden;
-  background: #fafafa;
+  background: var(--bg-table-header);
 }
 
 .process-step {
@@ -844,7 +844,7 @@ onActivated(() => {
 }
 
 .step-header:hover {
-  background: #f0f0f0;
+  background: var(--bg-table-header);
 }
 
 .step-indicator {
@@ -879,7 +879,7 @@ onActivated(() => {
   padding: 8px 14px 12px 38px;
   font-size: 12px;
   color: #666;
-  background: #f5f5f5;
+  background: var(--bg-table-header);
   line-height: 1.6;
 }
 
@@ -943,7 +943,7 @@ onActivated(() => {
 }
 
 .markdown-content :deep(code) {
-  background: #f0f0f0;
+  background: var(--bg-table-header);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 13px;
@@ -951,7 +951,7 @@ onActivated(() => {
 }
 
 .markdown-content :deep(pre) {
-  background: #f5f5f5;
+  background: var(--bg-table-header);
   padding: 12px;
   border-radius: 8px;
   overflow-x: auto;
@@ -1094,7 +1094,7 @@ onActivated(() => {
 /* ========== 输入区域 ========== */
 .input-area {
   padding: 16px 24px 20px;
-  background: #f7f7f8;
+  background: var(--bg-table-header);
   border-top: 1px solid transparent;
 }
 
@@ -1104,7 +1104,7 @@ onActivated(() => {
   display: flex;
   align-items: flex-end;
   gap: 12px;
-  background: #fff;
+  background: var(--bg-card);
   border: 1px solid #e0e0e0;
   border-radius: 12px;
   padding: 8px 12px;

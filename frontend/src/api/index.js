@@ -25,6 +25,16 @@ export default {
     return api.get(`/jobs/${jobId}`)
   },
 
+  // 获取岗位详情页URL（检查是否过期）
+  getJobDetailUrl(jobId) {
+    return api.get(`/jobs/${jobId}/detail-url`, { timeout: 15000 })
+  },
+
+  // 刷新岗位详情页URL（启动Chrome获取最新securityId并更新数据库）
+  refreshJobDetailUrl(jobId) {
+    return api.post(`/jobs/${jobId}/refresh-url`, {}, { timeout: 30000 })
+  },
+
   // ========== 采集任务 ==========
   startCrawl(data) {
     return api.post('/crawl/start', data)
@@ -82,6 +92,11 @@ export default {
   // 创建新对话
   newChat(userId = 'default_user', title = '新对话') {
     return api.post('/assistant/new-chat', { user_id: userId, title })
+  },
+
+  // 用户完成登录后通知后端继续爬取
+  confirmLogin(sessionId, success = true) {
+    return api.post('/assistant/login-confirm', { session_id: sessionId, success })
   },
 
   // 检查AI助手服务状态

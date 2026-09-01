@@ -19,6 +19,7 @@
           <div class="rc-contact-tags">
             <span v-if="data.personal.phone" class="rc-tag">{{ data.personal.phone }}</span>
             <span v-if="data.personal.email" class="rc-tag">{{ data.personal.email }}</span>
+            <span v-if="data.personal.wechat" class="rc-tag">微信: {{ data.personal.wechat }}</span>
             <span v-if="data.personal.github" class="rc-tag">{{ data.personal.github }}</span>
             <span v-if="data.personal.blog" class="rc-tag">{{ data.personal.blog }}</span>
           </div>
@@ -52,7 +53,7 @@
             <span v-if="edu.gpa" class="rc-mini-tag">GPA {{ edu.gpa }}</span>
             <span v-if="edu.rank" class="rc-mini-tag">排名 {{ edu.rank }}</span>
           </div>
-          <p v-if="edu.courses" class="rc-text-sm">{{ edu.courses }}</p>
+          <p v-if="edu.courses" class="rc-text-sm">主修课程：{{ edu.courses }}</p>
         </div>
       </section>
 
@@ -124,6 +125,7 @@
 defineProps({
   data: { type: Object, required: true },
   color: { type: String, default: '#e63946' },
+  editMode: { type: Boolean, default: false },
 })
 </script>
 
@@ -316,7 +318,8 @@ defineProps({
 .rc-mini-tag {
   font-size: 11px;
   color: var(--theme);
-  background: color-mix(in srgb, var(--theme) 10%, transparent);
+  background: transparent;
+  border: 1px solid var(--theme);
   padding: 1px 6px;
   border-radius: 4px;
 }

@@ -33,9 +33,17 @@ JOB_ANALYSIS_PROMPT = """你是一个专业的求职顾问AI助手。用户会�
 - 🛠️ 核心技能：[技能标签]
 - 🎁 福利待遇：[福利标签]
 - 👤 招聘者：[招聘者姓名] - [招聘者职位]（[在线状态]）
+- 🔗 岗位详情页：[detail_url]
 
 **推荐理由：**
 [详细分析该岗位为何匹配用户需求，包括技能匹配度、薪资合理性、公司发展前景等]
+
+**企业评价（基于网络信息）：**
+[通过网络搜索或你已有的知识库，提供该企业的员工评价以及这家公司的这个岗位的评价。请基于真实可查的信息进行分析，**严禁虚构或编造评价内容**。如果找不到足够的真实信息，请如实说明"未找到足够的网络评价信息，建议求职者自行搜索了解"。评价内容应包括（如有信息的话）：
+- 员工对公司的整体评价（工作氛围、管理制度等）
+- 该岗位在公司的发展前景和口碑
+- 薪资福利在行业中的竞争力
+- 加班情况和工作强度
 
 ---
 
@@ -50,7 +58,9 @@ JOB_ANALYSIS_PROMPT = """你是一个专业的求职顾问AI助手。用户会�
 4. 如果用户有薪资要求，分析岗位薪资是否满足。
 5. 如果用户有经验/学历要求，分析是否匹配。
 6. 如果用户有公司规模要求，分析公司是否符合。
-7. 如果岗位数据中没有完全符合用户筛选条件的，也要给出说明。"""
+7. 如果岗位数据中没有完全符合用户筛选条件的，也要给出说明。
+8. **企业评价部分必须基于真实信息，不能虚构或臆造。找不到信息时如实说明。**
+9. 每个推荐岗位都必须附带detail_url链接。"""
 
 
 class JobAnalyzer:
@@ -104,7 +114,7 @@ class JobAnalyzer:
             response = client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=4096,
+                max_tokens=8192,
                 temperature=0.7,
                 stream=True,
             )
@@ -160,7 +170,7 @@ class JobAnalyzer:
             response = client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=4096,
+                max_tokens=8192,
                 temperature=0.7,
                 stream=True,
             )
@@ -216,6 +226,7 @@ class JobAnalyzer:
                 "招聘者职位": job.get("boss_title", ""),
                 "在线状态": job.get("boss_active_status", ""),
                 "职位描述": (job.get("job_desc", "") or "")[:500],
+                "detail_url": job.get("detail_url", ""),
             }
             job_summaries.append(summary)
 
@@ -247,6 +258,8 @@ class JobAnalyzer:
             lines.append(f"- 📋 经验/学历：{job.get('experience', '')} / {job.get('education', '')}")
             lines.append(f"- 🏢 公司信息：{job.get('company_industry', '')} | {job.get('company_scale', '')}")
             lines.append(f"- 🛠️ 核心技能：{', '.join(job.get('skills', []) or [])}")
+            if job.get('detail_url'):
+                lines.append(f"- 🔗 [岗位详情页]({job['detail_url']})")
             lines.append("")
 
         lines.append("### 总结建议\n")

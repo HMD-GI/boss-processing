@@ -7,6 +7,11 @@ import './styles/theme.css'
 import App from './App.vue'
 import router from './router'
 
+// 在 Vue 挂载前应用主题（避免白色闪烁）
+if (localStorage.getItem('theme') === 'dark') {
+  document.documentElement.classList.add('dark')
+}
+
 const app = createApp(App)
 const pinia = createPinia()
 
