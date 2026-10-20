@@ -72,7 +72,8 @@ class JobListFetcher:
         """
         params = {
             "scene": "1",
-            "query": keyword,
+            "keyword": keyword,  # BOSS API 使用 keyword 参数（与登录检查一致）
+            "query": keyword,  # 兼容旧版参数名，双参数保证标题关键词生效
             "city": city_code,
             "experience": "",
             "payType": "",
@@ -97,31 +98,29 @@ class JobListFetcher:
 
         query_string = urllib.parse.urlencode(params)
 
-        # 在页面上下文中用同步 XHR 调用 API
-        # 使用同步 XHR 确保在 CDP evaluate 中能直接拿到结果
-        # 改进：先检查 xhr.status 和 response type，避免 JSON.parse 返回字符串
+        # 在页面上下文中用 fetch 调用 API（与环境检查一致，已验证可行）
+        # 使用异步 fetch + awaitPromise，避免同步 XHR 在新版 Chrome 中的兼容问题
         js_code = (
-            "(function() {\n"
-            f"    var xhr = new XMLHttpRequest();\n"
-            f"    xhr.open('GET', '{settings.SEARCH_API_PATH}?{query_string}', false);\n"
-            f"    xhr.setRequestHeader('x-requested-with', 'XMLHttpRequest');\n"
-            f"    try {{\n"
-            f"        xhr.send();\n"
-            f"        if (xhr.status !== 200) {{\n"
-            f"            return {{ error: 'HTTP ' + xhr.status, status: xhr.status }};\n"
-            f"        }}\n"
-            f"        var respText = xhr.responseText || '';\n"
-            f"        if (respText.charAt(0) !== '{{') {{\n"
-            f"            return {{ error: 'Non-JSON response', preview: respText.substring(0, 200) }};\n"
-            f"        }}\n"
-            f"        return JSON.parse(respText);\n"
-            f"    }} catch(e) {{\n"
-            f"        return {{ error: e.message }};\n"
-            f"    }}\n"
-            f"}})()"
+            "(async function() {\n"
+            "    try {\n"
+            f"        const resp = await fetch('/wapi/zpgeek/search/joblist.json?{query_string}',\n"
+            "            { headers: {'x-requested-with': 'XMLHttpRequest'} }\n"
+            "        );\n"
+            "        if (resp.status !== 200) {\n"
+            "            return { error: 'HTTP ' + resp.status, status: resp.status };\n"
+            "        }\n"
+            "        const respText = await resp.text();\n"
+            "        if (!respText || respText.charAt(0) !== '{') {\n"
+            "            return { error: 'Non-JSON response', preview: String(respText).substring(0, 200) };\n"
+            "        }\n"
+            "        return JSON.parse(respText);\n"
+            "    } catch(e) {\n"
+            "        return { error: e.message };\n"
+            "    }\n"
+            "})()"
         )
 
-        result = self.cdp.evaluate(js_code, await_promise=False)
+        result = self.cdp.evaluate(js_code, await_promise=True)
 
         # 类型安全检查：确保返回的是 dict
         if isinstance(result, str):
@@ -257,7 +256,16 @@ class JobListFetcher:
 
             job_list = data.get("zpData", {}).get("jobList", [])
             if not job_list:
+                # 打印诊断信息：帮助判断是 API 结构变化、参数问题还是真的没有数据
+                zp_data = data.get("zpData") or {}
+                diag_keys = list(zp_data.keys())[:15] if isinstance(zp_data, dict) else type(zp_data).__name__
+                preview = str(data)[:300]
                 self._log(f"  [INFO] Page {page}: no more data")
+                self._log(
+                    f"  [DIAG] zpData keys={diag_keys} | code={data.get('code')} "
+                    f"| raw preview={preview}",
+                    "warn",
+                )
                 break
 
             for job in job_list:
@@ -333,12 +341,10 @@ class JobListFetcher:
             # 详情页所需上下文
             "security_id": raw.get("securityId", ""),
             "lid": raw.get("lid", ""),
-            # 详情页网址
+            # 详情页网址（/job_detail/{jobId}.html 静态SEO格式，无需 lid/securityId）
             "detail_url": (
                 settings.BOSS_DETAIL_URL_TEMPLATE.format(
                     job_id=raw.get("encryptJobId", ""),
-                    lid=raw.get("lid", ""),
-                    security_id=urllib.parse.quote(raw.get("securityId", ""), safe=""),
                 )
                 if raw.get("encryptJobId") else ""
             ),

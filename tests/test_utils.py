@@ -25,7 +25,8 @@ class TestCityCodes:
         """测试已知城市的码查询"""
         assert get_city_code("北京") == "101010100"
         assert get_city_code("上海") == "101020100"
-        assert get_city_code("深圳") == "101280100"
+        assert get_city_code("深圳") == "101280600"
+        assert get_city_code("广州") == "101280100"
 
     def test_get_city_code_unknown(self):
         """测试未知城市的码查询"""

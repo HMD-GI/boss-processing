@@ -121,22 +121,45 @@ class CrawlService:
         login_ok = False
         login_error_detail = ""
         try:
-            api_result = self.connector.evaluate("""
-                (async () => {
-                    try {
+            # 探测城市使用官方有效码（广州 101280100），避免无效城市码导致空结果误判
+            test_city_code = get_city_code("广州") or "101280100"
+            api_result = self.connector.evaluate(f"""
+                (async () => {{
+                    try {{
                         const resp = await fetch(
-                            '/wapi/zpgeek/search/joblist.json?keyword=test&page=1',
-                            { headers: {'x-requested-with': 'XMLHttpRequest'} }
+                            '/wapi/zpgeek/search/joblist.json?keyword=test&city={test_city_code}&page=1&pageSize=30',
+                            {{ headers: {{'x-requested-with': 'XMLHttpRequest'}} }}
                         );
                         const data = await resp.json();
-                        return { code: data.code, has_jobs: !!(data.zpData?.jobList?.length) };
-                    } catch(e) { return { error: e.message }; }
-                })()
+                        const zpData = data.zpData || null;
+                        return {{
+                            code: data.code,
+                            message: data.message || '',
+                            has_jobs: !!(zpData && zpData.jobList && zpData.jobList.length),
+                            zp_keys: zpData ? Object.keys(zpData).slice(0, 10) : [],
+                        }};
+                    }} catch(e) {{ return {{ error: e.message }}; }}
+                }})()
             """)
-            if api_result and isinstance(api_result, dict) and api_result.get("code") == 0:
+            # 登录检查：必须 code==0 且能拿到 jobList 结构（至少验证 API 返回正常）
+            # 不强制 has_jobs=True（关键词 'test' 可能返回空列表），
+            # 但会区分"登录失效/风控"与"API 正常但关键词无结果"
+            if (
+                api_result
+                and isinstance(api_result, dict)
+                and api_result.get("code") == 0
+            ):
                 result["login_status"] = True
                 login_ok = True
                 self._log("[OK] 登录态正常")
+                if api_result.get("has_jobs"):
+                    self._log("[OK] 搜索接口可返回职位数据")
+                else:
+                    self._log(
+                        "[WARN] 登录态正常但测试关键词返回空列表"
+                        f"（zpData keys={api_result.get('zp_keys')}）",
+                        "warn",
+                    )
             else:
                 # 所有非成功情况都视为需要重新登录
                 if api_result and isinstance(api_result, dict):

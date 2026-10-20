@@ -85,14 +85,15 @@ def get_job_detail(job_id: str, db: Session = Depends(get_db)):
 @router.get("/jobs/{job_id}/detail-url")
 def get_job_detail_url(job_id: str, db: Session = Depends(get_db)):
     """
-    获取岗位详情页的 URL，并检查是否过期。
+    获取岗位详情页的 URL。
 
-    BOSS直聘的 securityId 有时效性（通常30分钟左右过期）。
-    本接口检查采集时间是否超过30分钟：
-    - 未超时：直接返回数据库中保存的 URL
-    - 超时：返回 need_refresh=True，提示前端需要刷新链接
+    新版 BOSS 详情页为静态 SEO 格式 /job_detail/{job_id}.html，
+    不依赖有时效的 securityId，链接不会过期，直接返回即可。
+    （若数据库中是旧格式 /web/geek/job 链接，则自动重建为新格式）
     """
-    from datetime import datetime, timedelta
+    from src.config import settings
+    from src.models.job import Job
+    from datetime import datetime
 
     # 从数据库查询岗位信息
     result = JobService.get_job_detail(db, job_id)
@@ -102,149 +103,58 @@ def get_job_detail_url(job_id: str, db: Session = Depends(get_db)):
     stored_url = result.get("detail_url", "")
     fetch_time_str = result.get("fetch_time", "")
 
-    # 解析采集时间，判断是否超过30分钟
-    need_refresh = False
-    fetch_time = None
-    if fetch_time_str:
-        try:
-            fetch_time = datetime.strptime(fetch_time_str, "%Y-%m-%d %H:%M:%S")
-            elapsed = datetime.now() - fetch_time
-            if elapsed > timedelta(minutes=30):
-                need_refresh = True
-        except (ValueError, TypeError):
-            need_refresh = True
-    else:
-        need_refresh = True
+    # 自动修复旧格式链接：/web/geek/job?jobId=xxx  →  /job_detail/xxx.html
+    if "/web/geek/job" in stored_url or not stored_url:
+        fresh_url = settings.BOSS_DETAIL_URL_TEMPLATE.format(job_id=job_id)
+        job_obj = db.query(Job).filter(Job.job_id == job_id).first()
+        if job_obj:
+            job_obj.detail_url = fresh_url
+            db.commit()
+        stored_url = fresh_url
 
-    if need_refresh:
-        return {
-            "detail_url": stored_url,
-            "need_refresh": True,
-            "fetch_time": fetch_time_str,
-            "message": "链接可能已过期，需要刷新获取最新详情链接",
-        }
-    else:
-        return {
-            "detail_url": stored_url,
-            "need_refresh": False,
-            "fetch_time": fetch_time_str,
-            "message": "链接有效",
-        }
+    return {
+        "detail_url": stored_url,
+        "need_refresh": False,
+        "fetch_time": fetch_time_str,
+        "message": "链接有效",
+    }
 
 
 @router.post("/jobs/{job_id}/refresh-url")
 def refresh_job_detail_url(job_id: str, db: Session = Depends(get_db)):
     """
-    刷新岗位详情页 URL（获取最新 securityId 并更新数据库）。
+    重建/更新岗位详情页 URL。
 
-    流程：
-    1. 查询岗位信息（keyword, city）
-    2. 启动 Chrome（如未运行）或连接已有 Chrome
-    3. 通过 BOSS 搜索 API 获取该岗位最新的 securityId
-    4. 构造新的详情页 URL
-    5. 更新数据库中的 detail_url 和 fetch_time
+    新版 BOSS 详情页为静态 SEO 格式 /job_detail/{job_id}.html，
+    只依赖 job_id，无需启动 Chrome 或搜索 securityId。
+    直接构造新 URL 并更新数据库。
     """
-    import urllib.parse
     from datetime import datetime
-    from src.crawler.cdp_connector import CDPConnector
     from src.config import settings
-    from src.utils.city_codes import get_city_code
     from src.models.job import Job
 
-    # 从数据库查询岗位信息
+    # 从数据库查询岗位信息（确认存在）
     result = JobService.get_job_detail(db, job_id)
     if not result:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    stored_url = result.get("detail_url", "")
-    keyword = result.get("keyword", "")
-    city = result.get("city", "")
-    job_name = result.get("job_name", "")
+    # 构造最新详情页 URL（静态格式，永不失效）
+    fresh_url = settings.BOSS_DETAIL_URL_TEMPLATE.format(job_id=job_id)
 
-    try:
-        connector = CDPConnector()
+    # 更新数据库中的 detail_url 和 fetch_time
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    job_obj = db.query(Job).filter(Job.job_id == job_id).first()
+    if job_obj:
+        job_obj.detail_url = fresh_url
+        job_obj.fetch_time = datetime.now()
+        db.commit()
 
-        # 复用已有 Chrome 实例（不杀旧进程，避免多设备登录冲突）
-        # 如果 Chrome 未运行，用已有 profile 启动（复用登录态）
-        # 如果 Chrome 已运行，直接连接
-        connector.ensure_chrome(headless=False)
-
-        # 等待页面就绪
-        import time
-        time.sleep(2)
-
-        city_code = get_city_code(city) if city else ""
-        search_keyword = keyword or job_name.split(" ")[0] or "python"
-
-        # 通过搜索 API 获取该岗位最新的 securityId
-        js_code = f"""
-            (function() {{
-                try {{
-                    var xhr = new XMLHttpRequest();
-                    var params = 'scene=1&query=' + encodeURIComponent('{search_keyword}') +
-                                '&city=' + encodeURIComponent('{city_code}') +
-                                '&page=1&pageSize=30';
-                    xhr.open('GET', '/wapi/zpgeek/search/joblist.json?' + params, false);
-                    xhr.setRequestHeader('x-requested-with', 'XMLHttpRequest');
-                    xhr.send();
-                    if (xhr.status !== 200) return null;
-                    var data = JSON.parse(xhr.responseText);
-                    if (data.code !== 0) return null;
-                    var jobList = data.zpData && data.zpData.jobList || [];
-                    // 查找匹配的岗位
-                    for (var i = 0; i < jobList.length; i++) {{
-                        if (jobList[i].encryptJobId === '{job_id}') {{
-                            return {{
-                                securityId: jobList[i].securityId,
-                                lid: jobList[i].lid,
-                            }};
-                        }}
-                    }}
-                    return null;
-                }} catch(e) {{
-                    return null;
-                }}
-            }})()
-        """
-
-        api_result = connector.evaluate(js_code, await_promise=False)
-        connector.close()  # 只关闭 WebSocket，不关闭 Chrome
-
-        if api_result and isinstance(api_result, dict) and api_result.get("securityId"):
-            # 构造最新的详情页 URL
-            fresh_url = settings.BOSS_DETAIL_URL_TEMPLATE.format(
-                job_id=job_id,
-                lid=api_result.get("lid", ""),
-                security_id=urllib.parse.quote(api_result["securityId"], safe=""),
-            )
-
-            # 更新数据库中的 detail_url 和 fetch_time
-            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            now_dt = datetime.now()
-            job_obj = db.query(Job).filter(Job.job_id == job_id).first()
-            if job_obj:
-                job_obj.detail_url = fresh_url
-                job_obj.fetch_time = now_dt
-                db.commit()
-
-            return {
-                "detail_url": fresh_url,
-                "fresh": True,
-                "fetch_time": now_str,
-                "message": "已获取最新详情页链接并更新数据库",
-            }
-        else:
-            return {
-                "detail_url": stored_url,
-                "fresh": False,
-                "message": "未能从搜索结果中找到该岗位，请稍后重试或手动在 BOSS 直聘中搜索",
-            }
-    except Exception as e:
-        return {
-            "detail_url": stored_url,
-            "fresh": False,
-            "message": f"刷新链接失败: {str(e)}",
-        }
+    return {
+        "detail_url": fresh_url,
+        "fresh": True,
+        "fetch_time": now_str,
+        "message": "已更新详情页链接",
+    }
 
 
 # ========== 采集任务 ==========

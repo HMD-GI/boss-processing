@@ -132,7 +132,6 @@ SEARCH_API_PATH = "/wapi/zpgeek/search/joblist.json"
 BOSS_HOME_URL = "https://www.zhipin.com/web/geek/job-recommend"
 
 # BOSS直聘详情页URL模板
-BOSS_DETAIL_URL_TEMPLATE = (
-    "https://www.zhipin.com/web/geek/job?jobId={job_id}"
-    "&lid={lid}&securityId={security_id}"
-)
+# 注意：必须使用 /job_detail/{job_id}.html 静态SEO格式（服务端渲染，无需登录/lid/securityId）。
+# 旧格式 /web/geek/job?jobId=... 已被 BOSS 改版废弃，打开后会重定向到职位列表首页。
+BOSS_DETAIL_URL_TEMPLATE = "https://www.zhipin.com/job_detail/{job_id}.html"
