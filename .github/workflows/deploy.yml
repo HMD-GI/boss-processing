@@ -40,6 +40,7 @@ jobs:
           echo "ACR_NAMESPACE set: ${{ secrets.ACR_NAMESPACE != '' }}"
           echo "ACR_USERNAME set: ${{ secrets.ACR_USERNAME != '' }}"
           echo "ACR_PASSWORD set: ${{ secrets.ACR_PASSWORD != '' }}"
+          echo "ACR_USERNAME value: ${{ secrets.ACR_USERNAME }}"
 
       - name: Login to Aliyun ACR
         uses: docker/login-action@v3
@@ -57,6 +58,9 @@ jobs:
           tags: |
             ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/backend:latest
             ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/backend:${{ github.sha }}
+          # ACR 个人版不识别 provenance/sbom 生成的 OCI 证明清单，必须关闭
+          provenance: false
+          sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -69,5 +73,8 @@ jobs:
           tags: |
             ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/frontend:latest
             ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/frontend:${{ github.sha }}
+          # 同上：ACR 个人版不支持证明清单，关闭
+          provenance: false
+          sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
