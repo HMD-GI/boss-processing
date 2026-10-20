@@ -1,0 +1,48 @@
+# ============================================================
+# BOSS直聘采集系统 - 后端镜像
+# Python 3.12 + Google Chrome + Xvfb 虚拟显示（无显示器服务器上有头运行）
+# ============================================================
+
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# ---------- 系统依赖：Chrome 运行时 + Xvfb + tini ----------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates unzip fonts-liberation \
+    libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+    libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 \
+    libxrandr2 libgbm1 libasound2 libatspi2.0-0 libpangocairo-1.0-0 \
+    libx11-xcb1 libdbus-1-3 libxcb-dri3-0 libxshmfence1 \
+    xvfb tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------- Google Chrome（有头模式需要真实浏览器内核） ----------
+RUN curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb \
+    && (dpkg -i /tmp/chrome.deb || apt-get -f install -y) \
+    && rm -f /tmp/chrome.deb
+
+# ---------- Python 依赖 ----------
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# ---------- 应用代码（data/city_codes.json 会被一并拷贝） ----------
+COPY . .
+
+# ---------- Chrome 包装脚本 ----------
+# 容器内以 root 运行 Chrome 必须加 --no-sandbox；
+# 通过 CHROME_PATH 注入，应用代码零改动。
+RUN printf '#!/bin/sh\nexec /usr/bin/google-chrome --no-sandbox --disable-dev-shm-usage "$@"\n' \
+        > /usr/local/bin/chrome-wrapper \
+    && chmod +x /usr/local/bin/chrome-wrapper
+
+ENV CHROME_PATH=/usr/local/bin/chrome-wrapper \
+    DISPLAY=:99
+
+EXPOSE 8000 9222
+
+ENTRYPOINT ["tini", "--"]
+# 先启动 Xvfb 虚拟显示，再启动 API 服务（登录态/爬取全程保持页面打开）
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1920x1080x24 & exec python -m src.main serve"]

@@ -1,0 +1,89 @@
+# ============================================================
+# BOSS直聘采集系统 - 服务器编排文件
+# 使用：
+#   cp .env.production.example .env   # 填写真实密码 / Key
+#   docker compose pull && docker compose up -d
+# 公网入口：http://服务器IP/boss_processing/
+# 自动更新：watchtower 每 300s 轮询 ACR，发现新 latest 自动重建
+# ============================================================
+
+services:
+  backend:
+    image: registry.cn-hangzhou.aliyuncs.com/boss-processing/backend:latest
+    container_name: boss-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"   # 仅服务器本机可访问，用于 curl 验证（不对公网开放）
+      - "127.0.0.1:9222:9222"   # CDP 调试端口，同样仅本机
+    env_file:
+      - .env
+    environment:
+      # 数据库等连接地址由 compose 组装，主机名用容器内网名，无需改应用代码
+      MYSQL_URL: mysql+pymysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/boss_db?charset=utf8mb4
+      MONGO_URL: mongodb://mongo:27017
+      # 登录态与采集结果落到数据卷（容器重建 / Watchtower 更新不丢失）
+      CHROME_PROFILE_DIR: /data/chrome-profile
+      JOB_RESULT_DIR: /data/job-result
+    volumes:
+      - boss_profile:/data/chrome-profile
+      - boss_result:/data/job-result
+    depends_on:
+      mysql:
+        condition: service_healthy
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  frontend:
+    image: registry.cn-hangzhou.aliyuncs.com/boss-processing/frontend:latest
+    container_name: boss-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  mysql:
+    image: mysql:8.0
+    container_name: boss-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: boss_db
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - boss_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  mongo:
+    image: mongo:7
+    container_name: boss-mongo
+    restart: unless-stopped
+    volumes:
+      - boss_mongo:/data/db
+
+  # 全自动更新：轮询 ACR，发现新镜像自动拉取并重建 backend/frontend
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # 复用服务器 ~/.docker/config.json 里的 ACR 登录凭据（docker login 一次即可）
+      - /root/.docker/config.json:/config.json
+    command: --interval 300 --cleanup --label-enable
+
+volumes:
+  boss_profile:
+  boss_result:
+  boss_mysql:
+  boss_mongo:

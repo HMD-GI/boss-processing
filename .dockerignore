@@ -1,0 +1,32 @@
+# ===== 安全：.env 含隐私信息，严禁打入镜像 =====
+.env
+.env.local
+.env.*.local
+
+# ===== Git / IDE =====
+.git
+.gitignore
+.idea
+.vscode
+
+# ===== Python =====
+**/__pycache__
+**/*.py[cod]
+.venv
+venv
+.pytest_cache
+.coverage
+htmlcov
+
+# ===== 前端构建产物（构建阶段自行生成） =====
+frontend/node_modules
+frontend/dist
+
+# ===== 本地数据 / 备份 =====
+data/*.sqlite3
+data/*.db
+backups
+*.log
+
+# ===== 文档（镜像内不需要） =====
+*.md
