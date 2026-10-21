@@ -9,7 +9,7 @@
 
 services:
   backend:
-    image: registry.cn-hangzhou.aliyuncs.com/boss-processing/backend:latest
+    image: crpi-jgu47yqkyxmfuvor.cn-hangzhou.personal.cr.aliyuncs.com/boss-processing/backend:latest
     container_name: boss-backend
     restart: unless-stopped
     ports:
@@ -34,7 +34,7 @@ services:
       - com.centurylinklabs.watchtower.enable=true
 
   frontend:
-    image: registry.cn-hangzhou.aliyuncs.com/boss-processing/frontend:latest
+    image: crpi-jgu47yqkyxmfuvor.cn-hangzhou.personal.cr.aliyuncs.com/boss-processing/frontend:latest
     container_name: boss-frontend
     restart: unless-stopped
     ports:

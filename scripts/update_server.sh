@@ -17,14 +17,14 @@
 #   3) /opt/boss 目录是 git clone 的仓库
 #
 # 可选环境变量（不设置则用默认值，按你实际 ACR 地域/命名空间修改）：
-#   ACR_REGISTRY  (默认 registry.cn-hangzhou.aliyuncs.com)
+#   ACR_REGISTRY  (默认 crpi-jgu47yqkyxmfuvor.cn-hangzhou.personal.cr.aliyuncs.com，按你实例调整)
 #   ACR_NAMESPACE (默认 boss-processing)
 #   ACR_USERNAME  (可留空，凭据已在 config.json)
 # ============================================================
 set -euo pipefail
 
 REPO_DIR="${1:-/opt/boss}"
-REGISTRY="${ACR_REGISTRY:-registry.cn-hangzhou.aliyuncs.com}"
+REGISTRY="${ACR_REGISTRY:-crpi-jgu47yqkyxmfuvor.cn-hangzhou.personal.cr.aliyuncs.com}"
 NAMESPACE="${ACR_NAMESPACE:-boss-processing}"
 STAMP="$(date '+%F %T')"
 LOG="${REPO_DIR}/backups/update.log"
